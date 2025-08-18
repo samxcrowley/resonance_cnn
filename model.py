@@ -23,7 +23,16 @@ if __name__ == "__main__":
 
     path = 'data/o16/o16_training.gz'
 
-    images = data_loading.get_images(path, log=True) # shape: [1000, 1, 101, 7]
+    images = data_loading.get_images(path, log=True) # shape: [1000, 3, 101, 7]
+    
+    # get min and max for energy and angle
+    subset = images[:, 1:3, :, :]
+    min_vals = subset.amin(dim=(0,2,3,)).squeeze()
+    max_vals = subset.amax(dim=(0,2,3,)).squeeze()
+    angle_min = min_vals[0].item()
+    angle_max = max_vals[0].item()
+    energy_min = min_vals[1].item()
+    energy_max = max_vals[1].item()
 
     idx = 0
     image = images[idx]
@@ -31,25 +40,6 @@ if __name__ == "__main__":
     angle = np.arange(xs.shape[1] + 1)
     energy = np.arange(xs.shape[0] + 1)
     plt.pcolormesh(angle, energy, xs)
+    # plt.xlim(angle_min, angle_max)
+    # plt.ylim(energy_min, energy_max)
     plt.show()
-
-    # heatmap = df.pivot(index='cn_ex', columns='theta_cm_out', values='dsdO')
-
-    # plt.figure(figsize=(10, 6))
-
-    # plt.imshow(
-    #     heatmap.values,
-    #     origin='lower',
-    #     aspect='auto',
-    #     cmap='viridis',
-    #     extent=[
-    #         heatmap.columns.min(), heatmap.columns.max(),
-    #         heatmap.index.min(), heatmap.index.max()
-    #     ]
-    # )
-
-    # plt.colorbar(label='Cross Section (dsdO)')
-    # plt.xlabel('Scattering Angle (degrees)')
-    # plt.ylabel('Excitation Energy (MeV)')
-    # plt.title('Differential Cross Section Heatmap')
-    # plt.show()
