@@ -1,9 +1,0 @@
-Each input to the model is the 2D cross-section grid; ds/dO(E, theta) and a context vector containing (J, pi, l, s)
-Context vector:
-- in_pair
-- out_pair
-- each allowed Jpi set
--- for each, the valid combos of (s_in, l_in) x (s_out, l_out)
-
-
-:wq
