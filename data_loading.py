@@ -44,7 +44,6 @@ def get_images(train_path, log=True):
 
     return torch.stack(tensors, dim=0)
 
-
 def get_targets(train_path):
 
     with open(train_path, 'r') as f:
@@ -61,7 +60,6 @@ def get_targets(train_path):
         tensors.append(torch.tensor([energy, gamma_total]))
 
     return torch.stack(tensors, dim=0)
-
 
 class ResonanceDataset(Dataset):
 
