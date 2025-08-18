@@ -3,3 +3,5 @@ twobody/
 .ipynb_checkpoints/
 best_model.pth
 .DS_Store
+gitlab_token.txt
+gitlab_recovery_codes.txt
