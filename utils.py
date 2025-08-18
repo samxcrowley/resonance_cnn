@@ -4,8 +4,6 @@ import torch
 
 def get_axes(images):
 
-    subset = images[:, 1:3, :, :]
-
     angles = images[:, 1, :, :].reshape(-1)
     energies = images[:, 2, :, :].reshape(-1)
     unique_angles = torch.unique(angles)

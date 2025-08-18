@@ -67,12 +67,8 @@ class ResonanceDataset(Dataset):
 
     def __init__(self, images, targets):
 
-        # store cross-sectional value as a function of (E, theta)
         self.images = images # shape: [n_samples, 4, n_energies, n_angles]
-
-        # targets stores a set of resonance data for each sample
-        # consists of: energy, width (Gamma), dominant l
-        self.targets = targets # shape: (num_samples, 3)
+        self.targets = targets # shape: (n_samples, 2)
 
     def __len__(self):
         return len(self.images)
