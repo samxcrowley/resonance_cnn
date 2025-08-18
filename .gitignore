@@ -1,6 +1,7 @@
 data/
 twobody/
 .ipynb_checkpoints/
+__pycache__/
 best_model.pth
 .DS_Store
 gitlab_token.txt
