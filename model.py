@@ -15,6 +15,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix, classification_report
 
 import data_loading
+import utils
 
 if __name__ == "__main__":
 
@@ -23,23 +24,9 @@ if __name__ == "__main__":
 
     path = 'data/o16/o16_training.gz'
 
-    images = data_loading.get_images(path, log=True) # shape: [1000, 3, 101, 7]
-    
-    # get min and max for energy and angle
-    subset = images[:, 1:3, :, :]
-    min_vals = subset.amin(dim=(0,2,3,)).squeeze()
-    max_vals = subset.amax(dim=(0,2,3,)).squeeze()
-    angle_min = min_vals[0].item()
-    angle_max = max_vals[0].item()
-    energy_min = min_vals[1].item()
-    energy_max = max_vals[1].item()
+    # images = data_loading.get_images(path, log=True) # shape: [1000, 4, 101, 7]
+    # utils.plot_image(images, 2)
 
-    idx = 0
-    image = images[idx]
-    xs = image[0].numpy()
-    angle = np.arange(xs.shape[1] + 1)
-    energy = np.arange(xs.shape[0] + 1)
-    plt.pcolormesh(angle, energy, xs)
-    # plt.xlim(angle_min, angle_max)
-    # plt.ylim(energy_min, energy_max)
-    plt.show()
+    targets = data_loading.get_targets(path)
+    print(targets.shape)
+    print(targets[0])

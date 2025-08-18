@@ -5,6 +5,9 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+# get all images from a training set
+# returns a tensor of shape [n_samples, 4, n_energies, n_angles]
+# 4 channels in dim. 1 are: cross-section, angle, energy, vis. mask
 def get_images(train_path, log=True):
 
     with open(train_path, 'r') as f:
@@ -19,6 +22,9 @@ def get_images(train_path, log=True):
         df = pd.DataFrame(points)
         df = df.drop(columns=['ke_cm_in', 'dsdRuth', 'dsdO-dsRuth'])
 
+        if log:
+            df['dsdO'] = np.log10(df['dsdO'])
+
         angles = sorted(df['theta_cm_out'].unique())
         energies = sorted(df['cn_ex'].unique())
 
@@ -27,46 +33,42 @@ def get_images(train_path, log=True):
         
         xx, yy = torch.meshgrid(torch.tensor(angles), torch.tensor(energies), indexing="xy")
 
-        if log:
-            df['dsdO'] = np.log10(df['dsdO'])
-
-        # energies = grid.index.values
-        # angles = grid.columns.values
-        # E, A = np.meshgrid(energies, angles, indexing='ij')
-
-        # cross_section = grid.values
-        # energy_channel = np.tile(E[..., None], (1,1))  # shape (E, A)
-        # angle_channel = np.tile(A[None, ...], (len(energies),1))
-
-        # print(energy_channel)
-        # print(angle_channel)
-
-        # # Stack into channels
-        # t = np.stack([cross_section, energy_channel, angle_channel], axis=0)
-        # t = torch.tensor(t, dtype=torch.float32)  # shape (3, E, A)
-
-        # print(t.shape)
-        # break
-
-        # t = torch.tensor(grid.values, dtype=torch.float32)
-        # t = t.unsqueeze(0)
-
         t = torch.stack([
             torch.tensor(grid, dtype=torch.float32),
             xx.float(),
-            yy.float()
+            yy.float(),
+            torch.zeros_like(xx)
         ], dim=0)
 
         tensors.append(t)
 
     return torch.stack(tensors, dim=0)
 
+
+def get_targets(train_path):
+
+    with open(train_path, 'r') as f:
+        data = json.load(f)
+
+    n = len(data)
+    tensors = []
+    for i in range(n):
+
+        levels = data[i]['levels'][0]
+        energy = levels['energy']
+        gamma_total = levels['Gamma_total']
+
+        tensors.append(torch.tensor([energy, gamma_total]))
+
+    return torch.stack(tensors, dim=0)
+
+
 class ResonanceDataset(Dataset):
 
     def __init__(self, images, targets):
 
         # store cross-sectional value as a function of (E, theta)
-        self.images = images # shape: (num_samples, 1, num_theta, num_E)
+        self.images = images # shape: [n_samples, 4, n_energies, n_angles]
 
         # targets stores a set of resonance data for each sample
         # consists of: energy, width (Gamma), dominant l
