@@ -1,2 +1,5 @@
 data/
 twobody/
+.ipynb_checkpoints/
+best_model.pth
+.DS_Store

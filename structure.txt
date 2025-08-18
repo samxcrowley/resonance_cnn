@@ -4,3 +4,6 @@ Context vector:
 - out_pair
 - each allowed Jpi set
 -- for each, the valid combos of (s_in, l_in) x (s_out, l_out)
+
+
+:wq
