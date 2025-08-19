@@ -54,7 +54,7 @@ class ResonanceCNN(nn.Module):
         x = self.gap(x).flatten(1) # (N, 8 * base)
 
         x = F.relu(self.fc1(x))
-        x = self.drop(F.relu(self.fc2(x)))
+        x = self.dropout(F.relu(self.fc2(x)))
 
         Er_unit = torch.sigmoid(self.head_E(x)).squeeze(-1) # (N,)
         logGamma = self.head_G(x).squeeze(-1) # (N,)
