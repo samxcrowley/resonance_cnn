@@ -3,6 +3,7 @@ twobody/
 .ipynb_checkpoints/
 __pycache__/
 best_model.pth
+*.pt
 .DS_Store
 gitlab_token.txt
 gitlab_recovery_codes.txt
