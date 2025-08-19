@@ -36,21 +36,25 @@ def get_images(train_path, log=True, norm_angles=True, norm_energies=True):
         energies = sorted(df['cn_ex'].unique())
         energy_min = min(energies)
         energy_max = max(energies)
-        if norm_angles:
+        if norm_energies:
             energies = utils.normalise(energies, energy_min, energy_max)
 
         grid = df.pivot(index='cn_ex', columns='theta_cm_out', values='dsdO') \
                     .reindex(index=sorted(df['cn_ex'].unique()), \
                             columns=sorted(df['theta_cm_out'].unique())).values
         
-        xx, yy = torch.meshgrid(torch.tensor(angles), torch.tensor(energies), indexing="xy")
+        EE, TH = torch.meshgrid(
+            torch.tensor(energies, dtype=torch.float32),
+            torch.tensor(angles, dtype=torch.float32),
+            indexing="ij"
+        )
 
         t = torch.stack([
-            torch.tensor(grid, dtype=torch.float32),
-            xx.float(),
-            yy.float(),
-            torch.zeros_like(xx)
-        ], dim=0)
+            torch.tensor(grid, dtype=torch.float32), # dsdO (log)
+            TH, # angle in [0,1] if norm_angles
+            EE, # energy in [0,1] if norm_energies
+            torch.zeros_like(EE) # vis. mask
+        ], dim=0)  # shape (4, E, A)
 
         tensors.append(t)
 
@@ -69,7 +73,17 @@ def get_targets(train_path):
         energy = levels['energy']
         gamma_total = levels['Gamma_total']
 
-        tensors.append(torch.tensor([energy, gamma_total]))
+        # normalise energy
+        points = data[i]['observable_sets'][0]['points']
+        df = pd.DataFrame(points)
+        energies_abs = sorted(df['cn_ex'].unique())
+        e_min, e_max = min(energies_abs), max(energies_abs)
+        Er_unit = (energy - e_min) / max(e_max - e_min, 1e-8)
+        Er_unit = float(np.clip(Er_unit, 0.0, 1.0))
+
+        log10_gamma = float(np.log10(gamma_total + 1e-8))
+
+        tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
 
     return torch.stack(tensors, dim=0)
 
@@ -78,7 +92,7 @@ class ResonanceDataset(Dataset):
     def __init__(self, images, targets):
 
         self.images = images # shape: [n_samples, 4, n_energies, n_angles]
-        self.targets = targets # shape: (n_samples, 2)
+        self.targets = targets # shape: [n_samples, 2]
 
     def __len__(self):
         return len(self.images)
@@ -86,6 +100,6 @@ class ResonanceDataset(Dataset):
     def __getitem__(self, idx):
         
         image = self.images[idx]
-        target = {key: val[idx] for key, val in self.targets.items()}
+        target = self.targets[idx]
 
         return image, target
