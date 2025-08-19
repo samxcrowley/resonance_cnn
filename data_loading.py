@@ -5,20 +5,22 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+import utils
+
 # get all images from a training set
 # returns a tensor of shape [n_samples, 4, n_energies, n_angles]
 # 4 channels in dim. 1 are: cross-section, angle, energy, vis. mask
-def get_images(train_path, log=True):
+def get_images(train_path, log=True, norm_angles=True, norm_energies=True):
 
     with open(train_path, 'r') as f:
         data = json.load(f)
 
     n = len(data)
     tensors = []
+
     for i in range(n):
 
         points = data[i]['observable_sets'][0]['points']
-
         df = pd.DataFrame(points)
         df = df.drop(columns=['ke_cm_in', 'dsdRuth', 'dsdO-dsRuth'])
 
@@ -26,10 +28,20 @@ def get_images(train_path, log=True):
             df['dsdO'] = np.log10(df['dsdO'])
 
         angles = sorted(df['theta_cm_out'].unique())
-        energies = sorted(df['cn_ex'].unique())
+        angle_min = min(angles)
+        angle_max = max(angles)
+        if norm_angles:
+            angles = utils.normalise(angles, angle_min, angle_max)
 
-        grid = df.pivot(index='cn_ex', columns='theta_cm_out', values='dsdO')\
-            .reindex(index=energies, columns=angles).values
+        energies = sorted(df['cn_ex'].unique())
+        energy_min = min(energies)
+        energy_max = max(energies)
+        if norm_angles:
+            energies = utils.normalise(energies, energy_min, energy_max)
+
+        grid = df.pivot(index='cn_ex', columns='theta_cm_out', values='dsdO') \
+                    .reindex(index=sorted(df['cn_ex'].unique()), \
+                            columns=sorted(df['theta_cm_out'].unique())).values
         
         xx, yy = torch.meshgrid(torch.tensor(angles), torch.tensor(energies), indexing="xy")
 
