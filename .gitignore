@@ -8,3 +8,4 @@ best_model.pth
 gitlab_token.txt
 gitlab_recovery_codes.txt
 *.swp
+*.png
