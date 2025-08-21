@@ -9,3 +9,4 @@ gitlab_token.txt
 gitlab_recovery_codes.txt
 *.swp
 *.png
+training_history.csv
