@@ -19,17 +19,17 @@ import utils
 
 class ResonanceCNN(nn.Module):
 
-    def __init__(self, in_ch=4, base=80, dropout_p=0.3):
+    def __init__(self, in_ch=4, base=80, dropout_p=0.3, kernel_size=3):
 
         super().__init__()
 
-        self.conv1 = nn.Conv2d(in_ch, base, kernel_size=2, padding='same')
+        self.conv1 = nn.Conv2d(in_ch, base, kernel_size=kernel_size, padding='same')
         self.bn1 = nn.BatchNorm2d(base)
-        self.conv2 = nn.Conv2d(base, base * 2, kernel_size=2, padding='same')
+        self.conv2 = nn.Conv2d(base, base * 2, kernel_size=kernel_size, padding='same')
         self.bn2 = nn.BatchNorm2d(base * 2)
-        self.conv3 = nn.Conv2d(base * 2, base * 4, kernel_size=2, padding='same')
+        self.conv3 = nn.Conv2d(base * 2, base * 4, kernel_size=kernel_size, padding='same')
         self.bn3 = nn.BatchNorm2d(base * 4)
-        self.conv4 = nn.Conv2d(base * 4, base * 8, kernel_size=2, padding='same')
+        self.conv4 = nn.Conv2d(base * 4, base * 8, kernel_size=kernel_size, padding='same')
         self.bn4 = nn.BatchNorm2d(base * 8)
 
         self.pool = nn.MaxPool2d(kernel_size=(2,1), stride=(2,1)) # downsample E only
@@ -60,3 +60,4 @@ class ResonanceCNN(nn.Module):
         logGamma = self.head_G(x).squeeze(-1) # (N,)
 
         return Er_unit, logGamma
+        # return Er_unit

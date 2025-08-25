@@ -1,7 +1,9 @@
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset, random_split, Subset
+import matplotlib.pyplot as plt
 import utils
 import model
 import data_loading
@@ -9,6 +11,16 @@ import sys
 import math
 
 SEED = 22
+
+n_epochs = 250
+batch_size = 32
+lr = 1e-4
+weight_decay = 1e-4
+
+dropout_p = 0.0
+base = 80
+kernel_size = 3
+gradients = True
 
 def train_epoch(net, loader, optimizer, device, grad_clip=None):
 
@@ -116,44 +128,62 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
-    path = 'data/o16/o16_training.gz'
+    path = 'data/o16/o16_training_new.gz'
 
     images  = data_loading.get_images(path, log=True, norm_angles=True, norm_energies=True)
     targets = data_loading.get_targets(path)
 
-    dataset = data_loading.ResonanceDataset(images, targets)
+    dataset = data_loading.ResonanceDataset(images, targets, gradients=gradients)
 
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(SEED))
-
-    batch_size = 16
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,  num_workers=0)
+    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    net = model.ResonanceCNN(in_ch=4, base=80, dropout_p=0.3).to(device)
+    net = model.ResonanceCNN(in_ch=4, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
 
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 
-    n_epochs = 300
     best_val = math.inf
     best_state = None
+
+    history = {
+        "epoch": [],
+        "train_loss": [], "train_loss_E": [], "train_loss_G": [], "train_mae_E": [], "train_mae_G": [],
+        "val_loss": [],   "val_loss_E": [],   "val_loss_G": [],   "val_mae_E": [],   "val_mae_G": []
+    }
 
     for epoch in range(1, n_epochs + 1):
 
         train_m = train_epoch(net, train_loader, optimizer, device, grad_clip=1.0)
         val_m = evaluate(net, val_loader, device)
 
-        scheduler.step(val_m['loss'])
+        # scheduler.step(val_m['loss'])
 
-        print(
-            f"Epoch {epoch:02d} | "
-            f"train loss {train_m['loss']:.4f} (E {train_m['loss_E']:.4f}, G {train_m['loss_gamma']:.4f}) "
-            f"| val loss {val_m['loss']:.4f} (E {val_m['loss_E']:.4f}, G {val_m['loss_gamma']:.4f}) "
-            f"| val MAE(E) {val_m['mae_E']:.4f} MAE(G) {val_m['mae_gamma']:.4f} "
-            f"{'| r2(logG) %.3f' % val_m['r2_logG'] if 'r2_logG' in val_m else ''}"
-        )
+        history["epoch"].append(epoch)
+        history["train_loss"].append(train_m["loss"])
+        history["train_loss_E"].append(train_m["loss_E"])
+        history["train_loss_G"].append(train_m["loss_gamma"])
+        history["train_mae_E"].append(train_m["mae_E"])
+        history["train_mae_G"].append(train_m["mae_gamma"])
+
+        history["val_loss"].append(val_m["loss"])
+        history["val_loss_E"].append(val_m["loss_E"])
+        history["val_loss_G"].append(val_m["loss_gamma"])
+        history["val_mae_E"].append(val_m["mae_E"])
+        history["val_mae_G"].append(val_m["mae_gamma"])
+
+        if epoch % 5 == 0:
+            print(
+                f"Epoch {epoch:02d} | "
+                f"train loss {train_m['loss']:.4f} (E {train_m['loss_E']:.4f}, G {train_m['loss_gamma']:.4f}) "
+                f"| val loss {val_m['loss']:.4f} (E {val_m['loss_E']:.4f}, G {val_m['loss_gamma']:.4f}) "
+                f"| val MAE(E) {val_m['mae_E']:.4f} MAE(G) {val_m['mae_gamma']:.4f} "
+                f"{'| r2(logG) %.3f' % val_m['r2_logG'] if 'r2_logG' in val_m else ''}"
+            )
 
         if val_m['loss'] < best_val:
             best_val = val_m['loss']
@@ -164,5 +194,88 @@ def main():
         torch.save(net.state_dict(), 'resonance_cnn_best.pt')
         print(f"Saved best model with val loss {best_val:.4f} -> resonance_cnn_best.pt")
 
+    hist_df = pd.DataFrame(history)
+    hist_df.to_csv("training_history.csv", index=False)
+    plt.figure()
+    plt.plot(hist_df["epoch"], hist_df["train_loss"], label="train loss")
+    plt.plot(hist_df["epoch"], hist_df["val_loss"],   label="val loss")
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.title("Total loss")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("loss_total.png", dpi=150)
+
 if __name__ == "__main__":
+
+    # path = 'data/o16/o16_training_new.gz'
+
+    # images = data_loading.get_images(path, log=True, norm_angles=True, norm_energies=True)
+    # targets = data_loading.get_targets(path)
+
+    # for i in range(10):
+    #     print(targets[i])
+    #     utils.plot_single_image(images[i])
+    #     utils.plot_single_image(utils.sobel(images[i]))
+
+    # dataset = data_loading.ResonanceDataset(images, targets, gradients=True)
+
+    # for i in range(10):
+    #     utils.plot_single_image(images[i])
+    #     utils.plot_single_image(utils.sobel(images[i]))
+
     main()
+
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # print(f'Using device: {device}')
+
+    # path = 'data/o16/o16_training.gz'
+
+    # images  = data_loading.get_images(path, log=True, norm_angles=True, norm_energies=True)
+    # targets = data_loading.get_targets(path)
+
+    # dataset = data_loading.ResonanceDataset(images, targets)
+
+    # train_size = int(0.8 * len(dataset))
+    # val_size = len(dataset) - train_size
+    # train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(SEED))
+
+    # train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,  num_workers=0)
+    # val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+
+    # net = model.ResonanceCNN(in_ch=4, base=80, dropout_p=dropout_p).to(device)
+
+    # tiny_idx = list(range(16))
+    # tiny_train = Subset(train_dataset, tiny_idx)
+    # tiny_loader = DataLoader(tiny_train, batch_size=16, shuffle=True)
+
+    # net.train()
+    # optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    # # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+
+    # for step in range(2000):
+
+    #     imgs, tgts = next(iter(tiny_loader))
+
+    #     imgs = imgs.to(device);
+    #     tgts = tgts.to(device)
+
+    #     Er_tgt = tgts[:,0]
+    #     # logG_tgt = tgts[:,1]
+
+    #     # Er_pred, logG_pred = net(imgs)
+    #     Er_pred  = net(imgs)
+
+    #     E_loss = F.mse_loss(Er_pred, Er_tgt)
+    #     # G_loss = F.mse_loss(logG_pred, logG_tgt)
+    #     # loss = E_loss + G_loss
+    #     loss = E_loss
+
+    #     optimizer.zero_grad();
+    #     loss.backward();
+    #     optimizer.step()
+
+    #     if step % 25 == 0:
+    #         print(step, float(loss), optimizer.param_groups[0]['lr'])
+
+        # scheduler.step(loss)

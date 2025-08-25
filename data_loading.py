@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 import utils
@@ -89,10 +90,11 @@ def get_targets(train_path):
 
 class ResonanceDataset(Dataset):
 
-    def __init__(self, images, targets):
+    def __init__(self, images, targets, gradients=True):
 
         self.images = images # shape: [n_samples, 4, n_energies, n_angles]
         self.targets = targets # shape: [n_samples, 2]
+        self.gradients = gradients
 
     def __len__(self):
         return len(self.images)
@@ -101,5 +103,8 @@ class ResonanceDataset(Dataset):
         
         image = self.images[idx]
         target = self.targets[idx]
+
+        if self.gradients:
+            image = utils.sobel(image)
 
         return image, target

@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import torch.nn.functional as F
 
 def get_axes(images):
 
@@ -30,3 +31,29 @@ def plot_image(images, idx):
     plt.pcolormesh(unique_angles, unique_energies, xs)
 
     plt.show()
+
+def plot_single_image(image):
+    plot_image(image.unsqueeze(0), 0)
+
+def sobel(image):
+    
+    device = image.device
+    dtype = image.dtype
+
+    x = image[0].unsqueeze(0).unsqueeze(0)
+
+    kx = torch.tensor([[-1, 0, 1],
+                       [-2, 0, 2],
+                       [-1, 0, 1]], dtype=dtype, device=device).view(1, 1, 3, 3)
+    ky = torch.tensor([[-1, -2, -1],
+                       [ 0,  0,  0],
+                       [ 1,  2,  1]], dtype=dtype, device=device).view(1, 1, 3, 3)
+
+    gx = F.conv2d(x, kx, padding=1)
+    gy = F.conv2d(x, ky, padding=1)
+
+    grad = torch.sqrt(gx * gx + gy * gy + 1e-12)
+    out = image.clone()
+    out[0] = grad[0]
+
+    return out
