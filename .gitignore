@@ -1,6 +1,7 @@
 data/
 twobody/
 .ipynb_checkpoints/
+reference/
 __pycache__/
 best_model.pth
 *.pt
