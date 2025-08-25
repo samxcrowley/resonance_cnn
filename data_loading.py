@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 
 import utils
 
+
 # get all images from a training set
 # returns a tensor of shape [n_samples, 4, n_energies, n_angles]
 # 4 channels in dim. 1 are: cross-section, angle, energy, vis. mask
@@ -61,6 +62,10 @@ def get_images(train_path, log=True, norm_angles=True, norm_energies=True):
 
     return torch.stack(tensors, dim=0)
 
+
+# get all targets from a training set
+# returns a tensor of shape [n_samples, 2]
+# energy, total width
 def get_targets(train_path):
 
     with open(train_path, 'r') as f:
@@ -88,6 +93,8 @@ def get_targets(train_path):
 
     return torch.stack(tensors, dim=0)
 
+
+# input dataset for ResonanceCNN
 class ResonanceDataset(Dataset):
 
     def __init__(self, images, targets, gradients=True):
