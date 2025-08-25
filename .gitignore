@@ -11,3 +11,4 @@ gitlab_recovery_codes.txt
 *.swp
 *.png
 training_history.csv
+testing.py
