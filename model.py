@@ -19,7 +19,7 @@ import utils
 
 class ResonanceCNN(nn.Module):
 
-    def __init__(self, in_ch=4, base=80, dropout_p=0.3, kernel_size=3):
+    def __init__(self, in_ch=2, base=80, dropout_p=0.3, kernel_size=3):
 
         super().__init__()
 
@@ -32,8 +32,8 @@ class ResonanceCNN(nn.Module):
         self.conv4 = nn.Conv2d(base * 4, base * 8, kernel_size=kernel_size, padding='same')
         self.bn4 = nn.BatchNorm2d(base * 8)
 
-        self.pool = nn.MaxPool2d(kernel_size=(2,1), stride=(2,1)) # downsample E only
-        self.gap = nn.AdaptiveAvgPool2d((1,1)) # size-invariant
+        self.pool = nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)) # downsample E only
+        self.gap = nn.AdaptiveAvgPool2d((1, 1)) # size-invariant
 
         # fully-connected layers
         self.fc1 = nn.Linear(base * 8, 256)
@@ -47,10 +47,10 @@ class ResonanceCNN(nn.Module):
     def forward(self, x):
 
         # x shape: (N, 4, E, A)
-        x = self.pool(F.relu(self.bn1(self.conv1(x)))) # (N, base, E/2, A)
-        x = self.pool(F.relu(self.bn2(self.conv2(x)))) # (N, 2 * base, E/4, A)
-        x = self.pool(F.relu(self.bn3(self.conv3(x)))) # (N, 4 * base, E/8, A)
-        x = self.pool(F.relu(self.bn4(self.conv4(x)))) # (N, 8 * base, E/16, A)
+        x = self.pool(F.relu(self.bn1(self.conv1(x)))) # (N, base, A, E/2)
+        x = self.pool(F.relu(self.bn2(self.conv2(x)))) # (N, 2 * base, A, E/4)
+        x = self.pool(F.relu(self.bn3(self.conv3(x)))) # (N, 4 * base, A, E/8)
+        x = self.pool(F.relu(self.bn4(self.conv4(x)))) # (N, 8 * base, A, E/16)
         x = self.gap(x).flatten(1) # (N, 8 * base)
 
         x = F.relu(self.fc1(x))

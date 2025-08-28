@@ -18,6 +18,7 @@ lr = 1e-4
 weight_decay = 1e-4
 
 dropout_p = 0.0
+in_ch = 2
 base = 80
 kernel_size = 3
 gradients = True
@@ -129,20 +130,28 @@ def main():
     print(f'Using device: {device}')
 
     path = 'data/o16/o16_training_new.gz'
+    
+    images = data_loading.get_images(path, log=True, drop_points=True)
+    # images = torch.load('images.pt')
+    print(images.shape)
 
-    images  = data_loading.get_images(path, log=True, norm_angles=True, norm_energies=True)
     targets = data_loading.get_targets(path)
 
     dataset = data_loading.ResonanceDataset(images, targets, gradients=gradients)
 
-    train_size = int(0.8 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(SEED))
+    # train_size = int(0.8 * len(dataset))
+    # val_size = len(dataset) - train_size
+    
+    subset = Subset(dataset, list(range(50)))
+    train_size = 42
+    val_size = 8
+    
+    train_dataset, val_dataset = random_split(subset, [train_size, val_size], generator=torch.Generator().manual_seed(SEED))
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    net = model.ResonanceCNN(in_ch=4, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
+    net = model.ResonanceCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
@@ -208,74 +217,4 @@ def main():
 
 if __name__ == "__main__":
 
-    # path = 'data/o16/o16_training_new.gz'
-
-    # images = data_loading.get_images(path, log=True, norm_angles=True, norm_energies=True)
-    # targets = data_loading.get_targets(path)
-
-    # for i in range(10):
-    #     print(targets[i])
-    #     utils.plot_single_image(images[i])
-    #     utils.plot_single_image(utils.sobel(images[i]))
-
-    # dataset = data_loading.ResonanceDataset(images, targets, gradients=True)
-
-    # for i in range(10):
-    #     utils.plot_single_image(images[i])
-    #     utils.plot_single_image(utils.sobel(images[i]))
-
     main()
-
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # print(f'Using device: {device}')
-
-    # path = 'data/o16/o16_training.gz'
-
-    # images  = data_loading.get_images(path, log=True, norm_angles=True, norm_energies=True)
-    # targets = data_loading.get_targets(path)
-
-    # dataset = data_loading.ResonanceDataset(images, targets)
-
-    # train_size = int(0.8 * len(dataset))
-    # val_size = len(dataset) - train_size
-    # train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=torch.Generator().manual_seed(SEED))
-
-    # train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,  num_workers=0)
-    # val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
-
-    # net = model.ResonanceCNN(in_ch=4, base=80, dropout_p=dropout_p).to(device)
-
-    # tiny_idx = list(range(16))
-    # tiny_train = Subset(train_dataset, tiny_idx)
-    # tiny_loader = DataLoader(tiny_train, batch_size=16, shuffle=True)
-
-    # net.train()
-    # optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
-    # # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
-
-    # for step in range(2000):
-
-    #     imgs, tgts = next(iter(tiny_loader))
-
-    #     imgs = imgs.to(device);
-    #     tgts = tgts.to(device)
-
-    #     Er_tgt = tgts[:,0]
-    #     # logG_tgt = tgts[:,1]
-
-    #     # Er_pred, logG_pred = net(imgs)
-    #     Er_pred  = net(imgs)
-
-    #     E_loss = F.mse_loss(Er_pred, Er_tgt)
-    #     # G_loss = F.mse_loss(logG_pred, logG_tgt)
-    #     # loss = E_loss + G_loss
-    #     loss = E_loss
-
-    #     optimizer.zero_grad();
-    #     loss.backward();
-    #     optimizer.step()
-
-    #     if step % 25 == 0:
-    #         print(step, float(loss), optimizer.param_groups[0]['lr'])
-
-        # scheduler.step(loss)
