@@ -1,67 +1,84 @@
 import json
 import numpy as np
 import pandas as pd
-
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
-
 import utils
+import random
 
+A_MIN = 0.0
+A_MAX = 180.0
+A_STEP = 15.0
+E_MIN = 5.0
+E_MAX = 15.0
+E_STEP = 0.05
 
-# get all images from a training set
-# returns a tensor of shape [n_samples, 4, n_energies, n_angles]
-# 4 channels in dim. 1 are: cross-section, angle, energy, vis. mask
-def get_images(train_path, log=True, norm_angles=True, norm_energies=True):
+def global_grid():
+
+    A_axis = np.arange(A_MIN, A_MAX, A_STEP)
+    E_axis = np.arange(E_MIN, E_MAX, E_STEP)
+
+    return A_axis, E_axis
+
+def place_image_on_grid(A_vals, E_vals, cx_vals):
+
+    A_vals = np.array(A_vals)
+    E_vals = np.array(E_vals)
+    cx_vals = np.array(cx_vals)
+
+    A_axis, E_axis = global_grid()
+    num_A = len(A_axis)
+    num_E = len(E_axis)
+
+    image = torch.zeros((2, num_A, num_E))
+
+    # get positions of nearest coordinates on grid
+    A_idx = np.abs(A_vals[:, None] - A_axis[None, :]).argmin(axis=1)
+    E_idx = np.abs(E_vals[:, None] - E_axis[None, :]).argmin(axis=1)
+
+    for i in range(len(cx_vals)):
+        ai, ei = A_idx[i], E_idx[i]
+        image[0, ai, ei] = cx_vals[i]
+        image[1, ai, ei] = 1.0
+
+    return image
+
+def get_images(train_path, log=True, drop_points=False):
 
     with open(train_path, 'r') as f:
         data = json.load(f)
 
     n = len(data)
-    tensors = []
+    images = []
 
     for i in range(n):
 
         points = data[i]['observable_sets'][0]['points']
-        df = pd.DataFrame(points)
-        df = df.drop(columns=['ke_cm_in', 'dsdRuth', 'dsdO-dsRuth'])
-
-        if log:
-            df['dsdO'] = np.log10(df['dsdO'])
-
-        angles = sorted(df['theta_cm_out'].unique())
-        angle_min = min(angles)
-        angle_max = max(angles)
-        if norm_angles:
-            angles = utils.normalise(angles, angle_min, angle_max)
-
-        energies = sorted(df['cn_ex'].unique())
-        energy_min = min(energies)
-        energy_max = max(energies)
-        if norm_energies:
-            energies = utils.normalise(energies, energy_min, energy_max)
-
-        grid = df.pivot(index='cn_ex', columns='theta_cm_out', values='dsdO') \
-                    .reindex(index=sorted(df['cn_ex'].unique()), \
-                            columns=sorted(df['theta_cm_out'].unique())).values
         
-        EE, TH = torch.meshgrid(
-            torch.tensor(energies, dtype=torch.float32),
-            torch.tensor(angles, dtype=torch.float32),
-            indexing="ij"
-        )
+        A_vals = []
+        E_vals = []
+        cx_vals = []
 
-        t = torch.stack([
-            torch.tensor(grid, dtype=torch.float32), # dsdO (log)
-            TH, # angle in [0,1] if norm_angles
-            EE, # energy in [0,1] if norm_energies
-            torch.zeros_like(EE) # vis. mask
-        ], dim=0)  # shape (4, E, A)
+        for p in points:
+            A_vals.append(p['theta_cm_out'])
+            E_vals.append(p['cn_ex'])
 
-        tensors.append(t)
+            if log == True:
+                cx = np.log10(p['dsdO'])
+                cx_vals.append(cx)
+            else:
+                cx_vals.append(p['dsdO'])
 
-    return torch.stack(tensors, dim=0)
+        image = place_image_on_grid(A_vals, E_vals, cx_vals)
 
+        if drop_points:
+            image = utils.crop(image, random.random() / 3, random.random() / 3,\
+                               random.random() / 3, random.random() / 3)
+
+        images.append(image)
+
+    return torch.stack(images, dim=0)
 
 # get all targets from a training set
 # returns a tensor of shape [n_samples, 2]
@@ -90,16 +107,16 @@ def get_targets(train_path):
         log10_gamma = float(np.log10(gamma_total + 1e-8))
 
         tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
+        # tensors.append(torch.tensor([energy, gamma_total], dtype=torch.float32))
 
     return torch.stack(tensors, dim=0)
-
 
 # input dataset for ResonanceCNN
 class ResonanceDataset(Dataset):
 
     def __init__(self, images, targets, gradients=True):
 
-        self.images = images # shape: [n_samples, 4, n_energies, n_angles]
+        self.images = images # shape: [n_samples, 2, n_A, n_E]
         self.targets = targets # shape: [n_samples, 2]
         self.gradients = gradients
 

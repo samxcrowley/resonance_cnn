@@ -2,15 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+import math
+import random
+import data_loading
 
-def get_axes(images):
+def get_axes(image):
 
-    angles = images[:, 1, :, :].reshape(-1)
-    energies = images[:, 2, :, :].reshape(-1)
-    unique_angles = torch.unique(angles)
-    unique_energies = torch.unique(energies)
+    A = torch.unique(image[1, :, :])
+    E = torch.unique(image[2, :, :])
     
-    return unique_angles, unique_energies
+    return A, E
 
 # normalise a tensor x to [0, 1]
 def normalise(x, min_val=None, max_val=None):
@@ -21,19 +22,53 @@ def normalise(x, min_val=None, max_val=None):
         max_val = x.max()
     return (x - min_val) / (max_val - min_val + 1e-8)
 
-def plot_image(images, idx):
+def plot_image(image, name):
 
-    image = images[idx]
-    xs = image[0].numpy()
+    A_axis, E_axis = data_loading.global_grid()
 
-    unique_angles, unique_energies = get_axes(images)
+    values = image[0].numpy() if isinstance(image, torch.Tensor) else image[0]
+    mask = image[1].numpy() if isinstance(image, torch.Tensor) else image[1]
 
-    plt.pcolormesh(unique_angles, unique_energies, xs)
+    # mask out invalid values
+    plot_data = np.where(mask == 1, values, np.nan)
 
-    plt.show()
+    plt.figure(figsize=(6, 4))
+    cmap = plt.cm.viridis.copy()
+    cmap.set_bad(color='black')
 
-def plot_single_image(image):
-    plot_image(image.unsqueeze(0), 0)
+    plt.pcolormesh(A_axis, E_axis, plot_data.T, cmap=cmap, shading='auto')
+    plt.colorbar(label="cx")
+    plt.xlabel("A")
+    plt.ylabel("E")
+    plt.savefig(f'images/testing/{name}')
+
+def crop(image, A_top, A_bot, E_top, E_bot):
+
+    A_axis, E_axis = data_loading.global_grid()
+    num_A = len(A_axis)
+    num_E = len(E_axis)
+
+    A_min = math.floor(num_A * A_bot)
+    A_max = math.ceil(num_A - (num_A * A_top))
+
+    E_min = math.floor(num_E * E_bot)
+    E_max = math.ceil(num_E - (num_E * E_top))
+
+    roi = torch.zeros((num_A, num_E), dtype=torch.bool, device=image.device)
+    roi[A_min:A_max, E_min:E_max] = True
+    outside = ~roi
+
+    image[1, outside] = 0
+
+    return image
+
+def interpolate_image(image, E_size, A_size):
+
+    image = image.unsqueeze(0)
+    image = F.interpolate(image, size=(E_size, A_size), mode='bilinear', align_corners=True)
+    image = image.squeeze(0)
+
+    return image
 
 def sobel(image):
     
