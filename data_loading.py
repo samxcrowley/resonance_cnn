@@ -15,6 +15,9 @@ E_MIN = 5.0
 E_MAX = 15.0
 E_STEP = 0.05
 
+# how many times each image is duplicated and augmented
+IMG_DUP = 10
+
 def global_grid():
 
     A_axis = np.arange(A_MIN, A_MAX, A_STEP)
@@ -73,7 +76,7 @@ def get_images(train_path, log=True, crop_coef=3, angle_p=0.25):
 
         image = place_image_on_grid(A_vals, E_vals, cx_vals)
 
-        for i in range(10):
+        for i in range(IMG_DUP):
             img = image.detach().clone()
             img = utils.random_crop(img, crop_coef, angle_p)
             images.append(img)
@@ -106,8 +109,8 @@ def get_targets(train_path):
 
         log10_gamma = float(np.log10(gamma_total + 1e-8))
 
-        tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
-        # tensors.append(torch.tensor([energy, gamma_total], dtype=torch.float32))
+        for i in range(IMG_DUP):
+            tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
 
     return torch.stack(tensors, dim=0)
 
