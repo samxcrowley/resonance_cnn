@@ -10,6 +10,7 @@ import random
 A_MIN = 0.0
 A_MAX = 180.0
 A_STEP = 15.0
+
 E_MIN = 5.0
 E_MAX = 15.0
 E_STEP = 0.05
@@ -31,7 +32,7 @@ def place_image_on_grid(A_vals, E_vals, cx_vals):
     num_A = len(A_axis)
     num_E = len(E_axis)
 
-    image = torch.zeros((2, num_A, num_E))
+    image = torch.zeros((1, num_A, num_E))
 
     # get positions of nearest coordinates on grid
     A_idx = np.abs(A_vals[:, None] - A_axis[None, :]).argmin(axis=1)
@@ -40,11 +41,11 @@ def place_image_on_grid(A_vals, E_vals, cx_vals):
     for i in range(len(cx_vals)):
         ai, ei = A_idx[i], E_idx[i]
         image[0, ai, ei] = cx_vals[i]
-        image[1, ai, ei] = 1.0
+        # image[1, ai, ei] = 1.0
 
     return image
 
-def get_images(train_path, log=True, drop_points=False):
+def get_images(train_path, log=True, crop_coef=3, angle_p=0.25):
 
     with open(train_path, 'r') as f:
         data = json.load(f)
@@ -72,11 +73,10 @@ def get_images(train_path, log=True, drop_points=False):
 
         image = place_image_on_grid(A_vals, E_vals, cx_vals)
 
-        if drop_points:
-            image = utils.crop(image, random.random() / 3, random.random() / 3,\
-                               random.random() / 3, random.random() / 3)
-
-        images.append(image)
+        for i in range(10):
+            img = image.detach().clone()
+            img = utils.random_crop(img, crop_coef, angle_p)
+            images.append(img)
 
     return torch.stack(images, dim=0)
 

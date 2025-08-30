@@ -27,16 +27,17 @@ def plot_image(image, name):
     A_axis, E_axis = data_loading.global_grid()
 
     values = image[0].numpy() if isinstance(image, torch.Tensor) else image[0]
-    mask = image[1].numpy() if isinstance(image, torch.Tensor) else image[1]
+    # mask = image[1].numpy() if isinstance(image, torch.Tensor) else image[1]
 
     # mask out invalid values
-    plot_data = np.where(mask == 1, values, np.nan)
+    # plot_data = np.where(mask == 1, values, np.nan)
 
     plt.figure(figsize=(6, 4))
     cmap = plt.cm.viridis.copy()
     cmap.set_bad(color='black')
 
-    plt.pcolormesh(A_axis, E_axis, plot_data.T, cmap=cmap, shading='auto')
+    # plt.pcolormesh(A_axis, E_axis, plot_data.T, cmap=cmap, shading='auto')
+    plt.pcolormesh(A_axis, E_axis, values.T, cmap=cmap, shading='auto')
     plt.colorbar(label="cx")
     plt.xlabel("A")
     plt.ylabel("E")
@@ -59,6 +60,31 @@ def crop(image, A_top, A_bot, E_top, E_bot):
     outside = ~roi
 
     image[1, outside] = 0
+
+    return image
+
+def random_crop(image, crop_coef=3, angle_p=0.25):
+
+    A_axis, E_axis = data_loading.global_grid()
+    num_A = len(A_axis)
+    num_E = len(E_axis)
+
+    for A in range(num_A):
+
+        E_bot = random.random() / crop_coef
+        E_top = random.random() / crop_coef
+
+        E_min = math.floor(num_E * E_bot)
+        E_max = math.ceil(num_E - (num_E * E_top))
+
+        roi = torch.zeros((num_E), dtype=torch.bool, device=image.device)
+        roi[E_min:E_max] = True
+        outside = ~roi
+
+        if random.random() < angle_p:
+            image[0, A, :] = 0
+        else:
+            image[0, A, outside] = 0
 
     return image
 

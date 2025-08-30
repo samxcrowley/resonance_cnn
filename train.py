@@ -142,9 +142,9 @@ def main():
     # train_size = int(0.8 * len(dataset))
     # val_size = len(dataset) - train_size
     
-    subset = Subset(dataset, list(range(50)))
-    train_size = 42
-    val_size = 8
+    subset = Subset(dataset, list(range(100)))
+    train_size = 80
+    val_size = 20
     
     train_dataset, val_dataset = random_split(subset, [train_size, val_size], generator=torch.Generator().manual_seed(SEED))
     
