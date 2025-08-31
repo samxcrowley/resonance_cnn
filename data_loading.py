@@ -20,31 +20,31 @@ IMG_DUP = 10
 
 def global_grid():
 
-    A_axis = np.arange(A_MIN, A_MAX, A_STEP)
     E_axis = np.arange(E_MIN, E_MAX, E_STEP)
+    A_axis = np.arange(A_MIN, A_MAX, A_STEP)
 
-    return A_axis, E_axis
+    return E_axis, A_axis
 
-def place_image_on_grid(A_vals, E_vals, cx_vals):
+def place_image_on_grid(E_vals, A_vals, cx_vals):
 
-    A_vals = np.array(A_vals)
     E_vals = np.array(E_vals)
+    A_vals = np.array(A_vals)
     cx_vals = np.array(cx_vals)
 
-    A_axis, E_axis = global_grid()
-    num_A = len(A_axis)
+    E_axis, A_axis = global_grid()
     num_E = len(E_axis)
+    num_A = len(A_axis)
 
-    image = torch.zeros((1, num_A, num_E))
+    image = torch.zeros((2, num_E, num_A))
 
     # get positions of nearest coordinates on grid
-    A_idx = np.abs(A_vals[:, None] - A_axis[None, :]).argmin(axis=1)
     E_idx = np.abs(E_vals[:, None] - E_axis[None, :]).argmin(axis=1)
+    A_idx = np.abs(A_vals[:, None] - A_axis[None, :]).argmin(axis=1)
 
     for i in range(len(cx_vals)):
-        ai, ei = A_idx[i], E_idx[i]
-        image[0, ai, ei] = cx_vals[i]
-        # image[1, ai, ei] = 1.0
+        ei, ai = E_idx[i], A_idx[i]
+        image[0, ei, ai] = cx_vals[i]
+        image[1, ei, ai] = 1.0
 
     return image
 
@@ -60,13 +60,13 @@ def get_images(train_path, log=True, crop_coef=3, angle_p=0.25):
 
         points = data[i]['observable_sets'][0]['points']
         
-        A_vals = []
         E_vals = []
+        A_vals = []
         cx_vals = []
 
         for p in points:
-            A_vals.append(p['theta_cm_out'])
             E_vals.append(p['cn_ex'])
+            A_vals.append(p['theta_cm_out'])
 
             if log == True:
                 cx = np.log10(p['dsdO'])
@@ -74,11 +74,12 @@ def get_images(train_path, log=True, crop_coef=3, angle_p=0.25):
             else:
                 cx_vals.append(p['dsdO'])
 
-        image = place_image_on_grid(A_vals, E_vals, cx_vals)
+        image = place_image_on_grid(E_vals, A_vals, cx_vals)
 
         for i in range(IMG_DUP):
             img = image.detach().clone()
             img = utils.random_crop(img, crop_coef, angle_p)
+            # img = utils.normalized_blur_inpaint(img)
             images.append(img)
 
     return torch.stack(images, dim=0)
@@ -119,8 +120,8 @@ class ResonanceDataset(Dataset):
 
     def __init__(self, images, targets, gradients=True):
 
-        self.images = images # shape: [n_samples, 2, n_A, n_E]
-        self.targets = targets # shape: [n_samples, 2]
+        self.images = images # shape: [N, C=2, E, A]
+        self.targets = targets # shape: [N, 2]
         self.gradients = gradients
 
     def __len__(self):

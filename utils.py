@@ -13,61 +13,34 @@ def get_axes(image):
     
     return A, E
 
-# normalise a tensor x to [0, 1]
-def normalise(x, min_val=None, max_val=None):
-
-    if min_val is None:
-        min_val = x.min()
-    if max_val is None:
-        max_val = x.max()
-    return (x - min_val) / (max_val - min_val + 1e-8)
-
 def plot_image(image, name):
 
-    A_axis, E_axis = data_loading.global_grid()
+    E_axis, A_axis = data_loading.global_grid()
 
     values = image[0].numpy() if isinstance(image, torch.Tensor) else image[0]
-    # mask = image[1].numpy() if isinstance(image, torch.Tensor) else image[1]
+    mask = image[1].numpy() if isinstance(image, torch.Tensor) else image[1]
 
     # mask out invalid values
-    # plot_data = np.where(mask == 1, values, np.nan)
+    plot_data = np.where(mask == 1, values, np.nan)
 
     plt.figure(figsize=(6, 4))
     cmap = plt.cm.viridis.copy()
     cmap.set_bad(color='black')
 
     # plt.pcolormesh(A_axis, E_axis, plot_data.T, cmap=cmap, shading='auto')
-    plt.pcolormesh(A_axis, E_axis, values.T, cmap=cmap, shading='auto')
+    plt.pcolormesh(E_axis, A_axis, values.T, cmap=cmap, shading='auto')
     plt.colorbar(label="cx")
     plt.xlabel("A")
     plt.ylabel("E")
     plt.savefig(f'images/testing/{name}')
 
-def crop(image, A_top, A_bot, E_top, E_bot):
-
-    A_axis, E_axis = data_loading.global_grid()
-    num_A = len(A_axis)
-    num_E = len(E_axis)
-
-    A_min = math.floor(num_A * A_bot)
-    A_max = math.ceil(num_A - (num_A * A_top))
-
-    E_min = math.floor(num_E * E_bot)
-    E_max = math.ceil(num_E - (num_E * E_top))
-
-    roi = torch.zeros((num_A, num_E), dtype=torch.bool, device=image.device)
-    roi[A_min:A_max, E_min:E_max] = True
-    outside = ~roi
-
-    image[1, outside] = 0
-
-    return image
-
 def random_crop(image, crop_coef=3, angle_p=0.25):
 
-    A_axis, E_axis = data_loading.global_grid()
-    num_A = len(A_axis)
+    E_axis, A_axis = data_loading.global_grid()
+    
     num_E = len(E_axis)
+    num_A = len(A_axis)
+    
 
     for A in range(num_A):
 
@@ -82,17 +55,9 @@ def random_crop(image, crop_coef=3, angle_p=0.25):
         outside = ~roi
 
         if random.random() < angle_p:
-            image[0, A, :] = 0
+            image[1, :, A] = 0
         else:
-            image[0, A, outside] = 0
-
-    return image
-
-def interpolate_image(image, E_size, A_size):
-
-    image = image.unsqueeze(0)
-    image = F.interpolate(image, size=(E_size, A_size), mode='bilinear', align_corners=True)
-    image = image.squeeze(0)
+            image[1, outside, A] = 0
 
     return image
 
@@ -118,3 +83,12 @@ def sobel(image):
     out[0] = grad[0]
 
     return out
+
+# normalise a tensor x to [0, 1]
+def normalise(x, min_val=None, max_val=None):
+
+    if min_val is None:
+        min_val = x.min()
+    if max_val is None:
+        max_val = x.max()
+    return (x - min_val) / (max_val - min_val + 1e-8)
