@@ -24,33 +24,32 @@ class ResonanceCNN(nn.Module):
         super().__init__()
 
         self.conv1 = nn.Conv2d(in_ch, base, kernel_size=kernel_size, padding='same')
-        self.bn1 = nn.BatchNorm2d(base)
+        self.bn1 = nn.GroupNorm(8, base)
         self.conv2 = nn.Conv2d(base, base * 2, kernel_size=kernel_size, padding='same')
-        self.bn2 = nn.BatchNorm2d(base * 2)
+        self.bn2 = nn.GroupNorm(8, base * 2)
         self.conv3 = nn.Conv2d(base * 2, base * 4, kernel_size=kernel_size, padding='same')
-        self.bn3 = nn.BatchNorm2d(base * 4)
+        self.bn3 = nn.GroupNorm(8, base * 4)
         self.conv4 = nn.Conv2d(base * 4, base * 8, kernel_size=kernel_size, padding='same')
-        self.bn4 = nn.BatchNorm2d(base * 8)
+        self.bn4 = nn.GroupNorm(8, base * 8)
 
-        self.pool = nn.MaxPool2d(kernel_size=(1, 2), stride=(1, 2)) # downsample E only
+        self.pool = nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1)) # downsample E only
         self.gap = nn.AdaptiveAvgPool2d((1, 1)) # size-invariant
 
-        # fully-connected layers
         self.fc1 = nn.Linear(base * 8, 256)
         self.fc2 = nn.Linear(256, 128)
+
         self.dropout = nn.Dropout(dropout_p)
 
-        # heads
         self.head_E = nn.Linear(128, 1) # Er_unit -> sigmoid in forward
         self.head_G = nn.Linear(128, 1) # logGamma -> linear
 
     def forward(self, x):
 
         # x shape: (N, 4, E, A)
-        x = self.pool(F.relu(self.bn1(self.conv1(x)))) # (N, base, A, E/2)
-        x = self.pool(F.relu(self.bn2(self.conv2(x)))) # (N, 2 * base, A, E/4)
-        x = self.pool(F.relu(self.bn3(self.conv3(x)))) # (N, 4 * base, A, E/8)
-        x = self.pool(F.relu(self.bn4(self.conv4(x)))) # (N, 8 * base, A, E/16)
+        x = self.pool(F.relu(self.bn1(self.conv1(x)))) # (N, base, E/2, A)
+        x = self.pool(F.relu(self.bn2(self.conv2(x)))) # (N, 2 * base, E/4, A)
+        x = self.pool(F.relu(self.bn3(self.conv3(x)))) # (N, 4 * base, E/8, A)
+        x = self.pool(F.relu(self.bn4(self.conv4(x)))) # (N, 8 * base, E/16, A)
         x = self.gap(x).flatten(1) # (N, 8 * base)
 
         x = F.relu(self.fc1(x))
@@ -60,4 +59,3 @@ class ResonanceCNN(nn.Module):
         logGamma = self.head_G(x).squeeze(-1) # (N,)
 
         return Er_unit, logGamma
-        # return Er_unit
