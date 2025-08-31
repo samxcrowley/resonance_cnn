@@ -6,22 +6,26 @@ from torch.utils.data import DataLoader, Dataset, random_split, Subset
 import matplotlib.pyplot as plt
 import utils
 import model
+import masked_model
 import data_loading
 import sys
 import math
 
 SEED = 22
 
-n_epochs = 250
-batch_size = 32
+n_epochs = 100
+batch_size = 16
 lr = 1e-4
 weight_decay = 1e-4
+
+tiny_size = 48
+tiny_train_size = 32
 
 dropout_p = 0.0
 in_ch = 2
 base = 80
 kernel_size = 3
-gradients = True
+gradients = False
 
 def train_epoch(net, loader, optimizer, device, grad_clip=None):
 
@@ -131,8 +135,8 @@ def main():
 
     path = 'data/o16/o16_training_new.gz'
     
-    images = data_loading.get_images(path, log=True, drop_points=True)
-    # images = torch.load('images.pt')
+    # images = data_loading.get_images(path, log=True, crop_coef=2.5, angle_p=0.2)
+    images = torch.load('images.pt')
     print(images.shape)
 
     targets = data_loading.get_targets(path)
@@ -142,16 +146,16 @@ def main():
     # train_size = int(0.8 * len(dataset))
     # val_size = len(dataset) - train_size
     
-    subset = Subset(dataset, list(range(100)))
-    train_size = 80
-    val_size = 20
-    
-    train_dataset, val_dataset = random_split(subset, [train_size, val_size], generator=torch.Generator().manual_seed(SEED))
+    subset = Subset(dataset, list(range(tiny_size)))
+
+    train_dataset, val_dataset = random_split(subset, \
+                                              [tiny_train_size, tiny_size - tiny_train_size], \
+                                                generator=torch.Generator().manual_seed(SEED))
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    net = model.ResonanceCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
+    net = masked_model.ResonanceCNN_Masked(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
