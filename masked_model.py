@@ -2,49 +2,93 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class PartialConv2d(nn.Module):
-    
-    #y = conv(x * m) / conv(m) (renormalized by number of valid inputs)
+import numpy as np
+
+def _pad2d(x, pad_h, pad_w, value=0.0):
+    """Zero-pad a 4D tensor NCHW by (pad_h, pad_w) on H and W."""
+    N, C, H, W = x.shape
+    out = np.full((N, C, H + 2*pad_h, W + 2*pad_w), value, dtype=x.dtype)
+    out[:, :, pad_h:pad_h+H, pad_w:pad_w+W] = x
+    return out
+
+
+class PartialConv2D(nn.Module):
 
     def __init__(self, in_ch, out_ch, kernel_size=3, stride=1, padding='same', bias=True):
 
         super().__init__()
 
-        self.conv = nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride,
-                              padding=padding, bias=bias)
-        # buffer to count valid inputs (ones over input channels)
-        k = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
-
-        self.register_buffer('ones_weight', torch.ones(1, in_ch, *k))
-        self.kernel_size = k
-        self.stride = stride
-        self.padding = padding
         self.in_ch = in_ch
         self.out_ch = out_ch
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.bias = bias
 
-    # x: [N, C_in, E, A], mask: [N, 1, E, A]
+        if padding == 'same':
+            self.padding = self.kernel_size // 2
+
+        # scaling factor -- number of params. in a window
+        self.K = in_ch * kernel_size * kernel_size
+
+        self.weight = nn.Parameter(torch.empty(out_ch, in_ch, kernel_size, kernel_size))
+        # nn.init.kaiming_normal_(self.weight, nonlinearity='relu')
+        nn.init.ones_(self.weight)
+
+        self.bias = nn.Parameter(torch.zeros(out_ch)) if bias else None
+        if self.bias is not None:
+            nn.init.zeros_(self.bias)
+
     def forward(self, x, mask):
 
-        # multiply by mask (broadcast over channels)
-        xm = x * mask
+        N = x.size(0)
+        C = x.size(1)
+        E = x.size(2)
+        A = x.size(3)
 
-        # numerator: normal conv on masked input
-        num = self.conv(xm)
+        # broadcast mask along channels if needed
+        if mask.size(1) == 1:
+            mask = mask.repeat(1, C, 1, 1)
 
-        # denominator: number of valid inputs per location in RF (convolve mask with ones over in_ch)
-        # build conv2d over mask with the same stride/padding, then broadcast to out_ch
-        den = F.conv2d(mask.repeat(1, self.in_ch, 1, 1),  # [N, C_in, E, A]
-                       self.ones_weight,               # [1, C_in, kW, kH]
-                       bias=None, stride=self.stride, padding=self.padding)
+        p = self.padding
+        x_pad = F.pad(x, (p, p, p, p), mode='constant', value=0.0)
+        mask_pad = F.pad(mask, (p, p, p, p), mode='constant', value=0.0)
+
+        x_unfold = F.unfold(x_pad, \
+                            kernel_size=(self.kernel_size, self.kernel_size), \
+                            stride=(self.stride, self.stride))
+        mask_unfold = F.unfold(mask_pad, \
+                            kernel_size=(self.kernel_size, self.kernel_size), \
+                            stride=(self.stride, self.stride))
         
-        den = den.clamp_min(1e-8)
-        y = num / den
+        valid_count = mask_unfold.sum(dim=1, keepdim=True)
 
-        # output mask: any valid input in RF -> 1
-        m_out = (F.conv2d(mask, torch.ones(1, 1, *self.kernel_size, device=mask.device, dtype=mask.dtype),
-                          bias=None, stride=self.stride, padding=self.padding) > 0).float()
-        
-        return y, m_out
+        x_mask_unfold = x_unfold * mask_unfold
+
+        weight_flat = self.weight.view(self.out_ch, -1)
+
+        # convolution
+        y_flat = torch.einsum('ok,nkl->nol', weight_flat, x_mask_unfold)
+
+        # scale
+        scale = (self.K / valid_count.clamp(min=1.0))
+        y_flat = y_flat * scale
+
+        if self.bias is not None:
+            y_flat = y_flat + self.bias.view(1, -1, 1)
+
+        no_valid = (valid_count <= 0)
+        if no_valid.any():
+            y_flat = y_flat.masked_fill(no_valid.expand_as(y_flat), 0.0)
+
+        # reshape back to (N, Cout, E, A)
+        E_out = (E + 2 * p - self.kernel_size) // self.stride + 1
+        A_out = (A + 2 * p - self.kernel_size) // self.stride + 1
+        y = y_flat.view(N, self.out_ch, E_out, A_out)
+
+        mask_next = (~no_valid).to(x.dtype).view(N, 1, E_out, A_out)
+
+        return y, mask_next
+
 
 # masked global average pool
 def masked_gap(x, mask, eps=1e-8):
@@ -58,17 +102,17 @@ def masked_gap(x, mask, eps=1e-8):
 
 class ResonanceCNN_Masked(nn.Module):
 
-    def __init__(self, in_ch=2, base=80, dropout_p=0.3, kernel_size=3):
+    def __init__(self, in_ch=1, base=80, dropout_p=0.3, kernel_size=3):
 
         super().__init__()
 
-        self.p1 = PartialConv2d(in_ch=1, out_ch=base, kernel_size=kernel_size, padding='same')
+        self.p1 = PartialConv2D(in_ch=in_ch, out_ch=base, kernel_size=kernel_size)
         self.gn1 = nn.GroupNorm(8, base)
-        self.p2 = PartialConv2d(in_ch=base, out_ch=base*2, kernel_size=kernel_size, padding='same')
+        self.p2 = PartialConv2D(in_ch=base, out_ch=base*2, kernel_size=kernel_size)
         self.gn2 = nn.GroupNorm(8, base*2)
-        self.p3 = PartialConv2d(in_ch=base*2, out_ch=base*4, kernel_size=kernel_size, padding='same')
+        self.p3 = PartialConv2D(in_ch=base*2, out_ch=base*4, kernel_size=kernel_size)
         self.gn3 = nn.GroupNorm(8, base*4)
-        self.p4 = PartialConv2d(in_ch=base*4, out_ch=base*8, kernel_size=kernel_size, padding='same')
+        self.p4 = PartialConv2D(in_ch=base*4, out_ch=base*8, kernel_size=kernel_size)
         self.gn4 = nn.GroupNorm(8, base*8)
 
         self.pool = nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1))
@@ -117,3 +161,4 @@ class ResonanceCNN_Masked(nn.Module):
         logGamma = self.head_G(z).squeeze(-1)
 
         return Er_unit, logGamma
+        # return Er_unit
