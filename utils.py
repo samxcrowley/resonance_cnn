@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+import pandas as pd
 import math
 import random
 import data_loading
@@ -27,8 +28,7 @@ def plot_image(image, name):
     cmap = plt.cm.viridis.copy()
     cmap.set_bad(color='black')
 
-    # plt.pcolormesh(A_axis, E_axis, plot_data.T, cmap=cmap, shading='auto')
-    plt.pcolormesh(E_axis, A_axis, values.T, cmap=cmap, shading='auto')
+    plt.pcolormesh(A_axis, E_axis, plot_data, cmap=cmap, shading='auto')
     plt.colorbar(label="cx")
     plt.xlabel("A")
     plt.ylabel("E")
@@ -40,7 +40,6 @@ def random_crop(image, crop_coef=3, angle_p=0.25):
     
     num_E = len(E_axis)
     num_A = len(A_axis)
-    
 
     for A in range(num_A):
 
@@ -92,3 +91,18 @@ def normalise(x, min_val=None, max_val=None):
     if max_val is None:
         max_val = x.max()
     return (x - min_val) / (max_val - min_val + 1e-8)
+
+def plot_training_data(train_data, name):
+
+    df = pd.read_csv(train_data)
+
+    plt.figure()
+    plt.plot(df["epoch"], df["train_loss"], label="train loss")
+    plt.plot(df["epoch"], df["val_loss"], label="val loss")
+    plt.plot(df["epoch"], df["train_mae_E"], label="MAE")
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.title("Total loss")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f'plots/{name}', dpi=150)
