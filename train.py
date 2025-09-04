@@ -13,7 +13,7 @@ import math
 
 SEED = 22
 
-path = 'data/o16/o16_training_new.gz'
+path = 'data/o16/o16_training.gz'
 
 # training
 n_epochs = 100
@@ -129,7 +129,7 @@ def main():
     
     images_path = f'data/images/{images_params_str}.pt'
 
-    images = data_loading.get_images(path, crop_coef=crop_coef, angle_p={angle_p})
+    images = data_loading.get_images(path, crop_coef=crop_coef, angle_p=angle_p)
     torch.save(images, images_path)
     # images = torch.load(images_path)
 
@@ -145,8 +145,8 @@ def main():
     else:
         targets = data_loading.get_targets(path, dup=True)
 
-    print(f'Images shape: f{images.shape}')
-    print(f'Targets shape: f{targets.shape}')
+    print(f'Images shape: {images.shape}')
+    print(f'Targets shape: {targets.shape}')
     if images.size(0) != targets.size(0):
         print('\nWarning: no. images does not match no. targets!! Exiting.\n')
         sys.exit(0)
@@ -165,7 +165,7 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
     if using_partial_model:
-        net = using_partial_model.ResonancePartialCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
+        net = partial_model.ResonancePartialCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
     else:
         net = model.ResonanceCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
 
@@ -204,8 +204,12 @@ def main():
                 f" | val MAE {val_m['mae_E']:.4f}"
             )
 
+    training_data_path = f'data/training_data/{params_str}.csv'
+
     df = pd.DataFrame(history)
-    df.to_csv(f'data/training_data/{params_str}.csv', index=False)
+    df.to_csv(training_data_path, index=False)
+
+    print(f'Training data saved to {training_data_path}')
 
 if __name__ == "__main__":
     main()
