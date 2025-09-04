@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader, Dataset, random_split, Subset
 import matplotlib.pyplot as plt
 import utils
 import model
-import masked_model
+import partial_model
 import data_loading
 import sys
 import math
@@ -26,7 +26,7 @@ subset_size = 64 # n. total
 subset_train_size = 48 # n. training samples
 
 # model params.
-partial_model = True
+using_partial_model = True
 dropout_p = 0.0
 in_ch = 1
 base = 80
@@ -119,7 +119,7 @@ def main():
     # create parameters strings for file saving
     images_params_str = f'crop_{crop_coef}_angle_{angle_p}'
     params_str = f'samples_{subset_train_size}_crop_{crop_coef}_angle_{angle_p}_epochs_{n_epochs}'
-    if partial_model:
+    if using_partial_model:
         params_str = 'partial_' + params_str
     else:
         params_str = 'cnn_' + params_str
@@ -135,8 +135,8 @@ def main():
 
     print(f'Images at {images_path}')
 
-    # normal CNN does not need the mask channel
-    if not partial_model:
+    # only the partial CNN needs the mask channel
+    if not using_partial_model:
         images = images[:, 0:1, :, :]
 
     # targets only get duplicated (by data_loading.IMG_DUP) when images are cropped
@@ -164,8 +164,8 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    if partial_model:
-        net = masked_model.ResonanceCNN_Masked(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
+    if using_partial_model:
+        net = using_partial_model.ResonanceCNN_Masked(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
     else:
         net = model.ResonanceCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
 
