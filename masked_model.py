@@ -31,8 +31,8 @@ class PartialConv2D(nn.Module):
         self.K = in_ch * kernel_size * kernel_size
 
         self.weight = nn.Parameter(torch.empty(out_ch, in_ch, kernel_size, kernel_size))
-        # nn.init.kaiming_normal_(self.weight, nonlinearity='relu')
-        nn.init.ones_(self.weight)
+        nn.init.kaiming_normal_(self.weight, nonlinearity='relu')
+        # nn.init.ones_(self.weight)
 
         self.bias = nn.Parameter(torch.zeros(out_ch)) if bias else None
         if self.bias is not None:
@@ -46,7 +46,7 @@ class PartialConv2D(nn.Module):
         A = x.size(3)
 
         # broadcast mask along channels if needed
-        if mask.size(1) == 1:
+        if mask.size(1) == 1 and C > 1:
             mask = mask.repeat(1, C, 1, 1)
 
         p = self.padding
@@ -107,21 +107,32 @@ class ResonanceCNN_Masked(nn.Module):
         super().__init__()
 
         self.p1 = PartialConv2D(in_ch=in_ch, out_ch=base, kernel_size=kernel_size)
-        self.gn1 = nn.GroupNorm(8, base)
+        # self.gn1 = nn.GroupNorm(8, base)
+        self.gn1 = nn.BatchNorm2d(base)
+
         self.p2 = PartialConv2D(in_ch=base, out_ch=base*2, kernel_size=kernel_size)
-        self.gn2 = nn.GroupNorm(8, base*2)
+        # self.gn2 = nn.GroupNorm(8, base*2)
+        self.gn2 = nn.BatchNorm2d(base*2)
+
         self.p3 = PartialConv2D(in_ch=base*2, out_ch=base*4, kernel_size=kernel_size)
-        self.gn3 = nn.GroupNorm(8, base*4)
+        # self.gn3 = nn.GroupNorm(8, base*4)
+        self.gn3 = nn.BatchNorm2d(base*4)
+
         self.p4 = PartialConv2D(in_ch=base*4, out_ch=base*8, kernel_size=kernel_size)
-        self.gn4 = nn.GroupNorm(8, base*8)
+        # self.gn4 = nn.GroupNorm(8, base*8)
+        self.gn4 = nn.BatchNorm2d(base*8)
 
         self.pool = nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1))
+        
+        self.gap = nn.AdaptiveAvgPool2d((1, 1)) # size-invariant
 
         self.fc1 = nn.Linear(base*8, 256)
         self.fc2 = nn.Linear(256, 128)
+
         self.dropout = nn.Dropout(dropout_p)
+        
         self.head_E = nn.Linear(128, 1)
-        self.head_G = nn.Linear(128, 1)
+        # self.head_G = nn.Linear(128, 1)
 
     def forward(self, x):
 
@@ -152,13 +163,14 @@ class ResonanceCNN_Masked(nn.Module):
         x = self.pool(x)
         mask = self.pool(mask)
 
-        feat = masked_gap(x, mask)
+        # feat = masked_gap(x, mask)
+        feat = self.gap(x).flatten(1)
 
         z = F.relu(self.fc1(feat))
         z = self.dropout(F.relu(self.fc2(z)))
 
-        Er_unit  = torch.sigmoid(self.head_E(z)).squeeze(-1)
-        logGamma = self.head_G(z).squeeze(-1)
+        Er_unit = torch.sigmoid(self.head_E(z)).squeeze(-1)
+        # logGamma = self.head_G(z).squeeze(-1)
 
-        return Er_unit, logGamma
-        # return Er_unit
+        # return Er_unit, logGamma
+        return Er_unit
