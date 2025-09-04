@@ -13,7 +13,7 @@ A_STEP = 15.0
 
 E_MIN = 5.0
 E_MAX = 15.0
-E_STEP = 0.05
+E_STEP = 0.1
 
 # how many times each image is duplicated and augmented
 IMG_DUP = 10
@@ -48,7 +48,7 @@ def place_image_on_grid(E_vals, A_vals, cx_vals):
 
     return image
 
-def get_images(train_path, log=True, crop_coef=3, angle_p=0.25):
+def get_images(train_path, log=True, crop_coef=3.0, angle_p=0.25):
 
     with open(train_path, 'r') as f:
         data = json.load(f)
@@ -65,6 +65,7 @@ def get_images(train_path, log=True, crop_coef=3, angle_p=0.25):
         cx_vals = []
 
         for p in points:
+
             E_vals.append(p['cn_ex'])
             A_vals.append(p['theta_cm_out'])
 
@@ -76,18 +77,20 @@ def get_images(train_path, log=True, crop_coef=3, angle_p=0.25):
 
         image = place_image_on_grid(E_vals, A_vals, cx_vals)
 
-        for i in range(IMG_DUP):
-            img = image.detach().clone()
-            img = utils.random_crop(img, crop_coef, angle_p)
-            # img = utils.normalized_blur_inpaint(img)
-            images.append(img)
+        if crop_coef == 0.0:
+            images.append(image)
+        else:
+            for i in range(IMG_DUP):
+                img = image.detach().clone()
+                img = utils.random_crop(img, crop_coef, angle_p)
+                images.append(img)
 
     return torch.stack(images, dim=0)
 
 # get all targets from a training set
 # returns a tensor of shape [n_samples, 2]
 # energy, total width
-def get_targets(train_path):
+def get_targets(train_path, dup=True):
 
     with open(train_path, 'r') as f:
         data = json.load(f)
@@ -110,7 +113,10 @@ def get_targets(train_path):
 
         log10_gamma = float(np.log10(gamma_total + 1e-8))
 
-        for i in range(IMG_DUP):
+        if dup:
+            for i in range(IMG_DUP):
+                tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
+        else:
             tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
 
     return torch.stack(tensors, dim=0)
