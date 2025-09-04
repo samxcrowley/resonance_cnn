@@ -3,12 +3,12 @@ twobody/
 .ipynb_checkpoints/
 reference/
 __pycache__/
-best_model.pth
 *.pt
 .DS_Store
 gitlab_token.txt
 gitlab_recovery_codes.txt
 *.swp
 *.png
-training_history.csv
 testing.py
+plots/
+images/
