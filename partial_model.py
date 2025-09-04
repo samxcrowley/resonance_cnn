@@ -81,7 +81,7 @@ class PartialConv2D(nn.Module):
 
         return y, mask_next
 
-class Resonance_PartialCNN(nn.Module):
+class ResonancePartialCNN(nn.Module):
 
     def __init__(self, in_ch=1, base=80, dropout_p=0.3, kernel_size=3):
 

@@ -165,7 +165,7 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
     if using_partial_model:
-        net = using_partial_model.ResonanceCNN_Masked(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
+        net = using_partial_model.ResonancePartialCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
     else:
         net = model.ResonanceCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
 
