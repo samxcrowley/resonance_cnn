@@ -98,8 +98,10 @@ def plot_training_data(train_data, name):
 
     plt.figure()
     plt.plot(df["epoch"], df["train_loss"], label="train loss")
-    plt.plot(df["epoch"], df["val_loss"], label="val loss")
-    plt.plot(df["epoch"], df["train_mae_E"], label="MAE")
+    plt.plot(df["epoch"], df["train_loss_E"], label="train loss (E)")
+    plt.plot(df["epoch"], df["train_loss_G"], label="train loss (G)")
+    # plt.plot(df["epoch"], df["val_loss"], label="val loss")
+    # plt.plot(df["epoch"], df["train_mae_E"], label="MAE")
     plt.xlabel("epoch")
     plt.ylabel("loss")
     plt.title("Total loss")

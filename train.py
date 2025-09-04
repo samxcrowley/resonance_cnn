@@ -9,6 +9,7 @@ import model
 import partial_model
 import data_loading
 import sys
+import os
 import math
 
 SEED = 22
@@ -42,8 +43,8 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
     net.train()
 
     running = {
-        'loss': 0.0, 'loss_E': 0.0,
-        'mae_E': 0.0, 'count': 0
+        'loss': 0.0, 'loss_E': 0.0, 'loss_G': 0.0,
+        'mae_E': 0.0, 'mae_G': 0.0, 'count': 0
     }
 
     for batch_images, batch_targets in loader:
@@ -52,10 +53,12 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         batch_targets = batch_targets.to(device=device, dtype=torch.float32)
 
         E_target = batch_targets[:, 0]
+        G_target = batch_targets[:, 1]
 
-        E_pred = net(batch_images)
+        E_pred, G_pred = net(batch_images)
         loss_E = F.mse_loss(E_pred, E_target)
-        loss = loss_E
+        loss_G = F.mse_loss(G_pred, G_target)
+        loss = loss_E + loss_G
 
         optimizer.zero_grad(set_to_none=True)
 
@@ -67,7 +70,9 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         with torch.no_grad():
             running['loss'] += loss.item() * batch_images.size(0)
             running['loss_E'] += loss_E.item() * batch_images.size(0)
+            running['loss_G'] += loss_G.item() * batch_images.size(0)
             running['mae_E'] += torch.mean(torch.abs(E_pred - E_target)).item() * batch_images.size(0)
+            running['mae_G'] += torch.mean(torch.abs(G_pred - G_target)).item() * batch_images.size(0)
             running['count'] += batch_images.size(0)
 
     n = running['count']
@@ -75,7 +80,9 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
     return {
         'loss': running['loss'] / n,
         'loss_E': running['loss_E'] / n,
-        'mae_E': running['mae_E'] / n
+        'mae_E': running['mae_E'] / n,
+        'loss_G': running['loss_G'] / n,
+        'mae_G': running['mae_G'] / n
     }
     
 def eval_epoch(net, loader, device):
@@ -83,8 +90,8 @@ def eval_epoch(net, loader, device):
     net.eval()
     
     running = {
-        'loss': 0.0, 'loss_E': 0.0,
-        'mae_E': 0.0, 'count': 0
+        'loss': 0.0, 'loss_E': 0.0, 'loss_G': 0.0,
+        'mae_E': 0.0, 'mae_G': 0.0, 'count': 0
     }
 
     with torch.no_grad():
@@ -94,25 +101,28 @@ def eval_epoch(net, loader, device):
             batch_targets = batch_targets.to(device=device, dtype=torch.float32)
 
             E_target = batch_targets[:, 0]
+            G_target = batch_targets[:, 1]
 
-            E_pred = net(batch_images)
-
+            E_pred, G_pred = net(batch_images)
             loss_E = F.mse_loss(E_pred, E_target)
-            loss = loss_E
+            loss_G = F.mse_loss(G_pred, G_target)
+            loss = loss_E + loss_G
 
             running['loss'] += loss.item() * batch_images.size(0)
             running['loss_E'] += loss_E.item() * batch_images.size(0)
+            running['loss_G'] += loss_G.item() * batch_images.size(0)
             running['mae_E'] += torch.mean(torch.abs(E_pred - E_target)).item() * batch_images.size(0)
+            running['mae_G'] += torch.mean(torch.abs(G_pred - G_target)).item() * batch_images.size(0)
             running['count'] += batch_images.size(0)
 
     n = running['count']
-    metrics = {
-        'loss': running['loss']   / n,
+    return {
+        'loss': running['loss'] / n,
         'loss_E': running['loss_E'] / n,
-        'mae_E': running['mae_E']  / n
+        'mae_E': running['mae_E'] / n,
+        'loss_G': running['loss_G'] / n,
+        'mae_G': running['mae_G'] / n
     }
-
-    return metrics
     
 def main():
 
@@ -129,10 +139,12 @@ def main():
     
     images_path = f'data/images/{images_params_str}.pt'
 
-    images = data_loading.get_images(path, crop_coef=crop_coef, angle_p=angle_p)
-    torch.save(images, images_path)
-    # images = torch.load(images_path)
-
+    if os.path.exists(images_path):
+        images = torch.load(images_path)
+    else:
+        images = data_loading.get_images(path, crop_coef=crop_coef, angle_p=angle_p)
+        torch.save(images, images_path)
+    
     print(f'Images at {images_path}')
 
     # only the partial CNN needs the mask channel
@@ -175,8 +187,12 @@ def main():
 
     history = {
         "epoch": [],
-        "train_loss": [], "train_loss_E": [], "train_mae_E": [],
-        "val_loss": [], "val_loss_E": [], "val_mae_E": []
+        "train_loss": [],
+        "train_loss_E": [], "train_mae_E": [],
+        "train_loss_G": [], "train_mae_G": [],
+        "val_loss": [],
+        "val_loss_E": [], "val_mae_E": [],
+        "val_loss_G": [], "val_mae_G": []
     }
 
     for epoch in range(1, n_epochs + 1):
@@ -187,21 +203,34 @@ def main():
         # scheduler.step(val_m['loss'])
 
         history["epoch"].append(epoch)
+
         history["train_loss"].append(train_m["loss"])
+
         history["train_loss_E"].append(train_m["loss_E"])
         history["train_mae_E"].append(train_m["mae_E"])
 
+        history["train_loss_G"].append(train_m["loss_G"])
+        history["train_mae_G"].append(train_m["mae_G"])
+
         history["val_loss"].append(val_m["loss"])
+
         history["val_loss_E"].append(val_m["loss_E"])
         history["val_mae_E"].append(val_m["mae_E"])
+
+        history["val_loss_G"].append(val_m["loss_G"])
+        history["val_mae_G"].append(val_m["mae_G"])
 
         if epoch % 5 == 0:
             print(
                 f"Epoch {epoch:02d} | "
                 f"train loss {train_m['loss']:.4f}"
+                f" | train loss (E) {train_m['loss_E']:.4f}"
+                f" | train loss (G) {train_m['loss_G']:.4f}"
                 f" | val loss {val_m['loss']:.4f}"
-                f" | train MAE {train_m['mae_E']:.4f}"
-                f" | val MAE {val_m['mae_E']:.4f}"
+                f" | val loss (E) {val_m['loss_E']:.4f}"
+                f" | val loss (G) {val_m['loss_G']:.4f}"
+                # f" | train MAE {train_m['mae_E']:.4f}"
+                # f" | val MAE {val_m['mae_E']:.4f}"
             )
 
     training_data_path = f'data/training_data/{params_str}.csv'

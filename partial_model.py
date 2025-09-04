@@ -24,7 +24,6 @@ class PartialConv2D(nn.Module):
 
         self.weight = nn.Parameter(torch.empty(out_ch, in_ch, kernel_size, kernel_size))
         nn.init.kaiming_normal_(self.weight, nonlinearity='relu')
-        # nn.init.ones_(self.weight)
 
         self.bias = nn.Parameter(torch.zeros(out_ch)) if bias else None
         if self.bias is not None:
@@ -113,7 +112,7 @@ class ResonancePartialCNN(nn.Module):
         self.dropout = nn.Dropout(dropout_p)
         
         self.head_E = nn.Linear(128, 1)
-        # self.head_G = nn.Linear(128, 1)
+        self.head_G = nn.Linear(128, 1)
 
     def forward(self, x):
 
@@ -150,7 +149,6 @@ class ResonancePartialCNN(nn.Module):
         z = self.dropout(F.relu(self.fc2(z)))
 
         Er_unit = torch.sigmoid(self.head_E(z)).squeeze(-1)
-        # logGamma = self.head_G(z).squeeze(-1)
+        logGamma = self.head_G(z).squeeze(-1)
 
-        # return Er_unit, logGamma
-        return Er_unit
+        return Er_unit, logGamma
