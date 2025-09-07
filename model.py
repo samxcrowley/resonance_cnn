@@ -52,7 +52,7 @@ class ResonanceCNN(nn.Module):
 
     def forward(self, x):
 
-        # x shape: (N, 4, E, A)
+        # x shape: (N, 2, E, A)
         x = self.pool(F.relu(self.bn1(self.conv1(x)))) # (N, base, E/2, A)
         x = self.pool(F.relu(self.bn2(self.conv2(x)))) # (N, 2 * base, E/4, A)
         x = self.pool(F.relu(self.bn3(self.conv3(x)))) # (N, 4 * base, E/8, A)

@@ -7,23 +7,22 @@ from torch.utils.data import DataLoader, Dataset
 import utils
 import random
 
-A_MIN = 0.0
-A_MAX = 180.0
-A_STEP = 15.0
+def random_energy_range(E_min, E_max):
 
-E_MIN = 5.0
-E_MAX = 15.0
-E_STEP = 0.1
+    pass
 
-# how many times each image is duplicated and augmented
-IMG_DUP = 10
+# given an ideal grid, generate a random quasi-experiment grid
+# - exp. energy range is chosen at random, with the minimum biased
+# towards the ideal energy minimum, and the maximum energy more variable
+# - a random energy step size is chosen >= ideal energy step size
+# - a random number of angles is chosen from [1, 7] with a peak at 3
+# and then this number of angles is picked from the ideal grid
+# at fixed step size biased towards backward angles (> 90 degrees)
+# - a random angle step size is chosen >= ideal angle step size
+def make_exp_grid(E_min, E_max, E_step, A_min, A_max, A_step):
 
-def global_grid():
-
-    E_axis = np.arange(E_MIN, E_MAX, E_STEP)
-    A_axis = np.arange(A_MIN, A_MAX, A_STEP)
-
-    return E_axis, A_axis
+    pass
+    
 
 def place_image_on_grid(E_vals, A_vals, cx_vals):
 
