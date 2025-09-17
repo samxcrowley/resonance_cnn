@@ -7,6 +7,21 @@ import math
 import random
 import data_loading
 
+def pick_by_dist(vals, probs):
+
+    n = len(probs)
+    split_size = int(len(vals) / n)
+
+    p = np.random.random()
+
+    for i in range(len(probs)):
+        _p = probs[i]
+        if p < _p:
+            split_start = i * split_size
+            split_end = split_start + split_size
+            return random.choice(vals[split_start:split_end])
+
+
 def get_axes(image):
 
     A = torch.unique(image[1, :, :])
