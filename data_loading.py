@@ -75,13 +75,13 @@ def crop_image(image):
 
 def get_images(train_path, log=True):
 
-    with open(train_path, 'r') as f:
-        data = json.load(f)
+    # with open(train_path, 'r') as f:
+    #     data = json.load(f)
 
-    # with gzip.open(train_path, 'rb') as f:
-    #     json_bytes = f.read()
-    #     json_str = json_bytes.decode()
-    #     data = json.loads(json_str)
+    with gzip.open(train_path, 'rb') as f:
+        json_bytes = f.read()
+        json_str = json_bytes.decode()
+        data = json.loads(json_str)
 
     n = len(data)
     images = []
