@@ -13,7 +13,7 @@ import math
 
 SEED = 22
 
-path = 'data/o16/o16_training.gz'
+path = 'data/o16/o16_training_small.gz'
 
 # training
 n_epochs = 100
@@ -31,11 +31,7 @@ dropout_p = 0.0
 in_ch = 1
 base = 80
 kernel_size = 3
-gradients = True
-
-# image cropping
-crop_coef = 2.0
-angle_p = 0.5
+gradients = False
 
 def train_epoch(net, loader, optimizer, device, grad_clip=None):
 
@@ -116,20 +112,12 @@ def eval_epoch(net, loader, device):
     
 def main():
 
-    # create parameters strings for file saving
-    images_params_str = f'crop_{crop_coef}_angle_{angle_p}'
-    params_str = f'samples_{subset_train_size}_crop_{crop_coef}_angle_{angle_p}_epochs_{n_epochs}'
-    if using_partial_model:
-        params_str = 'partial_' + params_str
-    else:
-        params_str = 'cnn_' + params_str
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
     
-    images_path = f'data/images/{images_params_str}.pt'
+    images_path = f'data/images.pt'
 
-    images = data_loading.get_images(path, crop_coef=crop_coef, angle_p=angle_p)
+    images = data_loading.get_images(path)
     torch.save(images, images_path)
     # images = torch.load(images_path)
 
@@ -140,10 +128,7 @@ def main():
         images = images[:, 0:1, :, :]
 
     # targets only get duplicated (by data_loading.IMG_DUP) when images are cropped
-    if crop_coef == 0:
-        targets = data_loading.get_targets(path, dup=False)
-    else:
-        targets = data_loading.get_targets(path, dup=True)
+    targets = data_loading.get_targets(path, dup=True)
 
     print(f'Images shape: {images.shape}')
     print(f'Targets shape: {targets.shape}')
@@ -153,13 +138,17 @@ def main():
 
     dataset = data_loading.ResonanceDataset(images, targets, gradients=gradients)
 
-    # train_size = int(0.8 * len(dataset))
-    # val_size = len(dataset) - train_size
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
     
-    subset = Subset(dataset, list(range(subset_size)))
-    train_dataset, val_dataset = random_split(subset, \
-                                              [subset_train_size, subset_size - subset_train_size], \
-                                                generator=torch.Generator().manual_seed(SEED))
+    train_dataset, val_dataset = random_split(dataset, \
+                                     [train_size, val_size], \
+                                        generator=torch.Generator().manual_seed(SEED))
+
+    # subset = Subset(dataset, list(range(subset_size)))
+    # train_dataset, val_dataset = random_split(subset, \
+    #                                           [subset_train_size, subset_size - subset_train_size], \
+    #                                             generator=torch.Generator().manual_seed(SEED))
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
