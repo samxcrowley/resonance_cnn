@@ -21,13 +21,31 @@ def pick_by_dist(vals, probs):
             split_end = split_start + split_size
             return random.choice(vals[split_start:split_end])
 
+def random_energy_range():
 
-def get_axes(image):
+    E_step = random.choice([0.1, 0.2, 0.5])
+    vals = np.arange(data_loading.global_E_min,
+                     data_loading.global_E_max + data_loading.global_E_step,
+                     data_loading.global_E_step)
+    n = len(vals)
 
-    A = torch.unique(image[1, :, :])
-    E = torch.unique(image[2, :, :])
+    E_min = round(pick_by_dist(vals[:int(n/2)], [0.75, 1.0]), 2)
+    E_max = round(pick_by_dist(vals[int(n/2):], [0.3, 1.0]), 2)
+
+    return E_min, E_max, E_step
+
+def random_angle_range():
+
+    n = random.choice([3, 4, 5, 6])
+
+    angles = np.arange(data_loading.global_A_min,
+                       data_loading.global_A_max + data_loading.global_A_step,
+                       data_loading.global_A_step)
     
-    return A, E
+    A_max = random.choice(angles[int(len(angles) / 2):])
+    A_min = A_max - (data_loading.global_A_step * n)
+
+    return A_min, A_max, data_loading.global_A_step
 
 def plot_image(image, name):
 

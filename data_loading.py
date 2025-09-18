@@ -7,9 +7,15 @@ from torch.utils.data import DataLoader, Dataset
 import utils
 import random
 
-def random_energy_range(E_min, E_max):
+global_E_min = 5.0
+global_E_max = 15.0
+global_E_step = 0.1
 
-    pass
+global_A_min = 25.0
+global_A_max = 175.0
+global_A_step = 10.0
+
+IMG_DUP = 10
 
 # given an ideal grid, generate a random quasi-experiment grid
 # - exp. energy range is chosen at random, with the minimum biased
@@ -19,9 +25,9 @@ def random_energy_range(E_min, E_max):
 # and then this number of angles is picked from the ideal grid
 # at fixed step size biased towards backward angles (> 90 degrees)
 # - a random angle step size is chosen >= ideal angle step size
-def make_exp_grid(E_min, E_max, E_step, A_min, A_max, A_step):
+def make_exp_grid():
 
-    pass
+    E_axis = 
     
 
 def place_image_on_grid(E_vals, A_vals, cx_vals):
@@ -73,6 +79,9 @@ def get_images(train_path, log=True, crop_coef=3.0, angle_p=0.25):
                 cx_vals.append(cx)
             else:
                 cx_vals.append(p['dsdO'])
+
+        print(list(set(A_vals)))
+        break
 
         image = place_image_on_grid(E_vals, A_vals, cx_vals)
 
