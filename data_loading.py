@@ -88,6 +88,8 @@ def get_images(train_path, log=True):
 
     for i in range(n):
 
+        print(f'get_images starting on {i}...')
+
         points = data[i]['observable_sets'][0]['points']
         
         E_vals = []
@@ -105,8 +107,9 @@ def get_images(train_path, log=True):
             else:
                 cx_vals.append(p['dsdO'])
 
-        for i in range(IMG_DUP):
+        for j in range(IMG_DUP):
             image = place_image_on_grid(E_vals, A_vals, cx_vals)
+            print(f'cropping {i}, {j}...')
             image = crop_image(image)
             images.append(image)
 
@@ -117,8 +120,13 @@ def get_images(train_path, log=True):
 # energy, total width
 def get_targets(train_path, dup=True):
 
-    with open(train_path, 'r') as f:
-        data = json.load(f)
+    # with open(train_path, 'r') as f:
+    #     data = json.load(f)
+
+    with gzip.open(train_path, 'rb') as f:
+        json_bytes = f.read()
+        json_str = json_bytes.decode()
+        data = json.loads(json_str)
 
     n = len(data)
     tensors = []

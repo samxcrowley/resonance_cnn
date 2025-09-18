@@ -13,7 +13,7 @@ import math
 
 SEED = 22
 
-path = 'data/o16/o16_training_small.gz'
+path = 'data/o16/o16_training.gz'
 
 # training
 n_epochs = 100
