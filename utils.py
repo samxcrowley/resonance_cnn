@@ -23,20 +23,20 @@ def pick_by_dist(vals, probs):
 
 def random_energy_range():
 
-    E_step = random.choice([0.1, 0.2, 0.5])
+    E_step = random.choice([0.1, 0.2, 0.3, 0.4, 0.5])
     vals = np.arange(data_loading.global_E_min,
                      data_loading.global_E_max + data_loading.global_E_step,
                      data_loading.global_E_step)
     n = len(vals)
 
-    E_min = round(pick_by_dist(vals[:int(n/2)], [0.75, 1.0]), 2)
-    E_max = round(pick_by_dist(vals[int(n/2):], [0.3, 1.0]), 2)
+    E_min = round(pick_by_dist(vals[:int(n/2)], [0.8, 1.0]), 2)
+    E_max = round(pick_by_dist(vals[int(n/2):], [0.0, 1.0]), 2)
 
     return E_min, E_max, E_step
 
 def random_angle_range():
 
-    n = random.choice([3, 4, 5, 6])
+    n = random.choice([3, 4, 5, 6, 7])
 
     angles = np.arange(data_loading.global_A_min,
                        data_loading.global_A_max + data_loading.global_A_step,

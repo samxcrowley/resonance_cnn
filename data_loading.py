@@ -1,14 +1,13 @@
 import json
+import gzip
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 import utils
-import random
 
-global_E_min = 5.0
-global_E_max = 15.0
+global_E_min = 8.0
+global_E_max = 20.0
 global_E_step = 0.1
 
 global_A_min = 25.0
@@ -17,18 +16,12 @@ global_A_step = 10.0
 
 IMG_DUP = 10
 
-# given an ideal grid, generate a random quasi-experiment grid
-# - exp. energy range is chosen at random, with the minimum biased
-# towards the ideal energy minimum, and the maximum energy more variable
-# - a random energy step size is chosen >= ideal energy step size
-# - a random number of angles is chosen from [1, 7] with a peak at 3
-# and then this number of angles is picked from the ideal grid
-# at fixed step size biased towards backward angles (> 90 degrees)
-# - a random angle step size is chosen >= ideal angle step size
-def make_exp_grid():
+def global_grid():
 
-    E_axis = 
-    
+    E_axis = np.arange(global_E_min, global_E_max, global_E_step)
+    A_axis = np.arange(global_A_min, global_A_max, global_A_step)
+
+    return E_axis, A_axis
 
 def place_image_on_grid(E_vals, A_vals, cx_vals):
 
@@ -53,10 +46,41 @@ def place_image_on_grid(E_vals, A_vals, cx_vals):
 
     return image
 
-def get_images(train_path, log=True, crop_coef=3.0, angle_p=0.25):
+def random_grid():
+
+    E_min, E_max, E_step = utils.random_energy_range()
+    A_min, A_max, A_step = utils.random_angle_range()
+
+    E_axis = np.arange(E_min, E_max, E_step)
+    A_axis = np.arange(A_min, A_max, A_step)
+
+    return E_axis, A_axis
+
+def crop_image(image):
+
+    global_E_axis, global_A_axis = global_grid()
+    random_E_axis, random_A_axis = random_grid()
+
+    for A_idx, A in enumerate(global_A_axis):
+        for E_idx, E in enumerate(global_E_axis):
+            
+            E = round(E, 2)
+            A = round(A, 2)
+
+            if A not in random_A_axis or E not in random_E_axis:
+                image[1, E_idx, A_idx] = 0.0
+
+    return image
+
+def get_images(train_path, log=True):
 
     with open(train_path, 'r') as f:
         data = json.load(f)
+
+    # with gzip.open(train_path, 'rb') as f:
+    #     json_bytes = f.read()
+    #     json_str = json_bytes.decode()
+    #     data = json.loads(json_str)
 
     n = len(data)
     images = []
@@ -80,18 +104,10 @@ def get_images(train_path, log=True, crop_coef=3.0, angle_p=0.25):
             else:
                 cx_vals.append(p['dsdO'])
 
-        print(list(set(A_vals)))
-        break
-
-        image = place_image_on_grid(E_vals, A_vals, cx_vals)
-
-        if crop_coef == 0.0:
+        for i in range(IMG_DUP):
+            image = place_image_on_grid(E_vals, A_vals, cx_vals)
+            image = crop_image(image)
             images.append(image)
-        else:
-            for i in range(IMG_DUP):
-                img = image.detach().clone()
-                img = utils.random_crop(img, crop_coef, angle_p)
-                images.append(img)
 
     return torch.stack(images, dim=0)
 
