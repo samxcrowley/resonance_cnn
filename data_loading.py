@@ -18,8 +18,8 @@ IMG_DUP = 10
 
 def global_grid():
 
-    E_axis = np.arange(global_E_min, global_E_max, global_E_step)
-    A_axis = np.arange(global_A_min, global_A_max, global_A_step)
+    E_axis = np.arange(global_E_min, global_E_max + global_E_step, global_E_step)
+    A_axis = np.arange(global_A_min, global_A_max + global_A_step, global_A_step)
 
     return E_axis, A_axis
 
@@ -42,7 +42,7 @@ def place_image_on_grid(E_vals, A_vals, cx_vals):
     for i in range(len(cx_vals)):
         ei, ai = E_idx[i], A_idx[i]
         image[0, ei, ai] = cx_vals[i]
-        image[1, ei, ai] = 1.0
+        image[1, ei, ai] = 0.0 # mask set to zero initially
 
     return image
 
@@ -61,15 +61,12 @@ def crop_image(image):
     global_E_axis, global_A_axis = global_grid()
     random_E_axis, random_A_axis = random_grid()
 
-    for A_idx, A in enumerate(global_A_axis):
-        for E_idx, E in enumerate(global_E_axis):
-            
-            E = round(E, 2)
-            A = round(A, 2)
+    A_idx = np.searchsorted(global_A_axis, random_A_axis)
+    E_idx = np.searchsorted(global_E_axis, random_E_axis)
 
-            if not np.any(np.isclose(A, random_A_axis)) or \
-                not np.any(np.isclose(E, random_E_axis)):
-                image[1, E_idx, A_idx] = 0.0
+    for E in E_idx:
+        for A in A_idx:
+            image[1, E, A] = 1.0
 
     return image
 
