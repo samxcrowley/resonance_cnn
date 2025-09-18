@@ -29,8 +29,8 @@ def random_energy_range():
                      data_loading.global_E_step)
     n = len(vals)
 
-    E_min = round(pick_by_dist(vals[:int(n/2)], [0.8, 1.0]), 2)
-    E_max = round(pick_by_dist(vals[int(n/2):], [0.0, 1.0]), 2)
+    E_min = round(pick_by_dist(vals[:int(n / 2)], [0.75, 1.0]), 2)
+    E_max = round(pick_by_dist(vals[int(n / 2):], [0.75, 0.9, 1.0]), 2)
 
     return E_min, E_max, E_step
 

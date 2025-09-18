@@ -67,7 +67,8 @@ def crop_image(image):
             E = round(E, 2)
             A = round(A, 2)
 
-            if A not in random_A_axis or E not in random_E_axis:
+            if not np.any(np.isclose(A, random_A_axis)) or \
+                not np.any(np.isclose(E, random_E_axis)):
                 image[1, E_idx, A_idx] = 0.0
 
     return image
