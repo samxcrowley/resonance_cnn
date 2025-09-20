@@ -72,15 +72,16 @@ def crop_image(image):
 
     return image
 
-def get_images(train_path, log=True):
+def get_images(train_path, log=True, compressed=True):
 
-    with open(train_path, 'r') as f:
-        data = json.load(f)
-
-    # with gzip.open(train_path, 'rb') as f:
-    #     json_bytes = f.read()
-    #     json_str = json_bytes.decode()
-    #     data = json.loads(json_str)
+    if compressed:
+        with gzip.open(train_path, 'rb') as f:
+            json_bytes = f.read()
+            json_str = json_bytes.decode()
+            data = json.loads(json_str)
+    else:
+        with open(train_path, 'r') as f:
+            data = json.load(f)
 
     n = len(data)
     images = []
@@ -117,15 +118,16 @@ def get_images(train_path, log=True):
 # get all targets from a training set
 # returns a tensor of shape [n_samples, 2]
 # energy, total width
-def get_targets(train_path, dup=True):
+def get_targets(train_path, dup=True, compressed=True):
 
-    # with open(train_path, 'r') as f:
-    #     data = json.load(f)
-
-    with gzip.open(train_path, 'rb') as f:
-        json_bytes = f.read()
-        json_str = json_bytes.decode()
-        data = json.loads(json_str)
+    if compressed:
+        with gzip.open(train_path, 'rb') as f:
+            json_bytes = f.read()
+            json_str = json_bytes.decode()
+            data = json.loads(json_str)
+    else:
+        with open(train_path, 'r') as f:
+            data = json.load(f)
 
     n = len(data)
     tensors = []
