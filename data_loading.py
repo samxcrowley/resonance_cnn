@@ -18,8 +18,8 @@ IMG_DUP = 10
 
 def global_grid():
 
-    E_axis = np.arange(global_E_min, global_E_max + global_E_step, global_E_step)
-    A_axis = np.arange(global_A_min, global_A_max + global_A_step, global_A_step)
+    E_axis = np.arange(global_E_min, global_E_max, global_E_step)
+    A_axis = np.arange(global_A_min, global_A_max, global_A_step)
 
     return E_axis, A_axis
 
@@ -58,6 +58,8 @@ def random_grid():
 
 def crop_image(image):
 
+    image[1, :, :] = 0.0
+
     global_E_axis, global_A_axis = global_grid()
     random_E_axis, random_A_axis = random_grid()
 
@@ -72,13 +74,13 @@ def crop_image(image):
 
 def get_images(train_path, log=True):
 
-    # with open(train_path, 'r') as f:
-    #     data = json.load(f)
+    with open(train_path, 'r') as f:
+        data = json.load(f)
 
-    with gzip.open(train_path, 'rb') as f:
-        json_bytes = f.read()
-        json_str = json_bytes.decode()
-        data = json.loads(json_str)
+    # with gzip.open(train_path, 'rb') as f:
+    #     json_bytes = f.read()
+    #     json_str = json_bytes.decode()
+    #     data = json.loads(json_str)
 
     n = len(data)
     images = []
