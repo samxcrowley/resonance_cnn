@@ -126,7 +126,7 @@ def get_images(train_path, log=True, compressed=True):
 # get all targets from a training set
 # returns a tensor of shape [n_samples, 2]
 # energy, total width
-def get_targets(train_path, dup=True, compressed=True):
+def get_targets(train_path, compressed=True):
 
     if compressed:
         with gzip.open(train_path, 'rb') as f:
@@ -155,10 +155,8 @@ def get_targets(train_path, dup=True, compressed=True):
 
         log10_gamma = float(np.log10(gamma_total + 1e-8))
 
-        if dup:
-            for i in range(IMG_DUP):
-                tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
-        else:
+        # duplicate targets to match duplicated (cropped) images
+        for i in range(IMG_DUP):
             tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
 
     return torch.stack(tensors, dim=0)

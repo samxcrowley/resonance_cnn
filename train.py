@@ -21,9 +21,7 @@ batch_size = 16
 lr = 1e-4
 weight_decay = 1e-4
 
-# n. samples
-subset_size = 64 # n. total
-subset_train_size = 48 # n. training samples
+subset_size = 500
 
 # model params.
 using_partial_model = True
@@ -117,9 +115,9 @@ def main():
     
     images_path = f'data/images.pt'
 
-    images = data_loading.get_images(path)
-    torch.save(images, images_path)
-    # images = torch.load(images_path)
+    # images = data_loading.get_images(path)
+    # torch.save(images, images_path)
+    images = torch.load(images_path)
 
     print(f'Images at {images_path}')
 
@@ -127,8 +125,12 @@ def main():
     if not using_partial_model:
         images = images[:, 0:1, :, :]
 
-    # targets only get duplicated (by data_loading.IMG_DUP) when images are cropped
-    targets = data_loading.get_targets(path, dup=True)
+    targets = data_loading.get_targets(path)
+
+    # if we have defined a smaller subset, cut off the unneeded samples
+    if subset_size < len(images):
+        images = images[:subset_size]
+        targets = targets[:subset_size]
 
     print(f'Images shape: {images.shape}')
     print(f'Targets shape: {targets.shape}')
@@ -144,11 +146,9 @@ def main():
     train_dataset, val_dataset = random_split(dataset, \
                                      [train_size, val_size], \
                                         generator=torch.Generator().manual_seed(SEED))
-
-    # subset = Subset(dataset, list(range(subset_size)))
-    # train_dataset, val_dataset = random_split(subset, \
-    #                                           [subset_train_size, subset_size - subset_train_size], \
-    #                                             generator=torch.Generator().manual_seed(SEED))
+    
+    print(f'Training size: f{len(train_dataset)}')
+    print(f'Validation size: f{len(val_dataset)}')
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
@@ -193,7 +193,7 @@ def main():
                 f" | val MAE {val_m['mae_E']:.4f}"
             )
 
-    training_data_path = f'data/training_data/{params_str}.csv'
+    training_data_path = f'data/last_training_data.csv'
 
     df = pd.DataFrame(history)
     df.to_csv(training_data_path, index=False)
