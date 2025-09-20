@@ -4,6 +4,7 @@ __pycache__/
 .nuclear
 .tok
 
+*.gz
 *.pt
 *.swp
 *.png
