@@ -25,7 +25,7 @@ def random_energy_range():
 
     E_step = random.choice([0.1, 0.2, 0.3, 0.4, 0.5])
     vals = np.arange(data_loading.global_E_min,
-                     data_loading.global_E_max + data_loading.global_E_step,
+                     data_loading.global_E_max,
                      data_loading.global_E_step)
     n = len(vals)
 
@@ -39,7 +39,7 @@ def random_angle_range():
     n = random.choice([3, 4, 5, 6, 7])
 
     angles = np.arange(data_loading.global_A_min,
-                       data_loading.global_A_max + data_loading.global_A_step,
+                       data_loading.global_A_max,
                        data_loading.global_A_step)
     
     A_max = random.choice(angles[int(len(angles) / 2):])
