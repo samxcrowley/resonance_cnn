@@ -150,13 +150,25 @@ def main():
     print(f'Training size: f{len(train_dataset)}')
     print(f'Validation size: f{len(val_dataset)}')
     
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    train_loader = DataLoader(train_dataset,
+                              batch_size=batch_size,
+                              shuffle=True,
+                              num_workers=num_workers)
+    val_loader = DataLoader(val_dataset,
+                            batch_size=batch_size,
+                            shuffle=False,
+                            num_workers=num_workers)
 
     if using_partial_model:
-        net = partial_model.ResonancePartialCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
+        net = partial_model.ResonancePartialCNN(in_ch=in_ch,
+                                                base=base,
+                                                dropout_p=dropout_p,
+                                                kernel_size=kernel_size).to(device)
     else:
-        net = model.ResonanceCNN(in_ch=in_ch, base=base, dropout_p=dropout_p, kernel_size=kernel_size).to(device)
+        net = model.ResonanceCNN(in_ch=in_ch,
+                                 base=base,
+                                 dropout_p=dropout_p,
+                                 kernel_size=kernel_size).to(device)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
