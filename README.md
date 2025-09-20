@@ -1,3 +1,7 @@
+# Overview
+
+This is a collection of models to identify and predict resonances and their properties from nuclear scattering cross-sections. For now, the model is only trained on $^{12}\text{C} + \alpha \to {}^{12}\text{C} + \alpha$ scattering data.
+
 # Input
 
 Here, nuclear cross-section data are treated and referred to as images as they can very sensibly be visualised as such, and our machine learning techniques are borrowed from image classification and feature detection.
@@ -13,13 +17,9 @@ Image data are saved to `data/images`.
 
 ### Image cropping
 
-To simulate patchy and irregular experimental data, the input images can be cropped according to parameters `crop_coef` and `angle_p`. This is done by changing ones to zeroes in the visibility mask channel, and not by altering the cross-section channel.
+To simulate patchy and irregular experimental data, the input images can be cropped. This is done by changing ones to zeroes in the visibility mask channel, and not by altering the cross-section channel.
 
-- Energy ranges at each angle are cropped from the bottom and top, each by up to `1 / crop_coef`
-- Angles are dropped from the images at random, by a percentage of up to `angle_p`
-- If `crop_coef = 0` the images are left unchanged
-- If `crop_coef > 0` the images are each duplicated `data_loading.IMG_DUP` times (default is 10) and each of these are cropped at random, and the targets are duplicated accordingly too
-    - Note: this means the image and target tensors will then be of size `[n_samples * IMG_DUP,]`
+Random energy and angle ranges are chosen, and each raw image from the dataset is duplicated `data_loading.IMG_DUP` times (default is 10) times, with each being cropped randomly.
 
 ## Targets
 
