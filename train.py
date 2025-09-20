@@ -15,9 +15,11 @@ SEED = 22
 
 path = 'data/o16/o16_training.gz'
 
+num_workers = 16
+
 # training
 n_epochs = 100
-batch_size = 16
+batch_size = 32
 lr = 1e-4
 weight_decay = 1e-4
 
@@ -115,9 +117,9 @@ def main():
     
     images_path = f'data/images.pt'
 
-    # images = data_loading.get_images(path)
-    # torch.save(images, images_path)
-    images = torch.load(images_path)
+    images = data_loading.get_images(path)
+    torch.save(images, images_path)
+    # images = torch.load(images_path)
 
     print(f'Images at {images_path}')
 
