@@ -62,36 +62,10 @@ def plot_image(image, name):
     cmap.set_bad(color='black')
 
     plt.pcolormesh(A_axis, E_axis, plot_data, cmap=cmap, shading='auto')
-    plt.colorbar(label="cx")
-    plt.xlabel("A")
-    plt.ylabel("E")
-    plt.savefig(f'images/testing/{name}')
-
-def random_crop(image, crop_coef=3, angle_p=0.25):
-
-    E_axis, A_axis = data_loading.global_grid()
-    
-    num_E = len(E_axis)
-    num_A = len(A_axis)
-
-    for A in range(num_A):
-
-        E_bot = random.random() / crop_coef
-        E_top = random.random() / crop_coef
-
-        E_min = math.floor(num_E * E_bot)
-        E_max = math.ceil(num_E - (num_E * E_top))
-
-        roi = torch.zeros((num_E), dtype=torch.bool, device=image.device)
-        roi[E_min:E_max] = True
-        outside = ~roi
-
-        if random.random() < angle_p:
-            image[1, :, A] = 0
-        else:
-            image[1, outside, A] = 0
-
-    return image
+    plt.colorbar(label="dsdO")
+    plt.xlabel("Angle")
+    plt.ylabel("Energy")
+    plt.savefig(f'images/{name}')
 
 def sobel(image):
     
