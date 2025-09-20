@@ -7,7 +7,7 @@ from tqdm import tqdm
 from twobody.models.rmatrix.rmatrix import *;
 from twobody.constants import RADIAN_PER_DEGREE;
 
-from twobody.models.pointcoulomb import PointCoulomb;
+from twobody.twobody.models.pointcoulomb import PointCoulomb;
 
 import matplotlib.pyplot as plt;
 
