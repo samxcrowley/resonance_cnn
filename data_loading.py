@@ -17,9 +17,13 @@ global_A_step = 10.0
 IMG_DUP = 10
 
 def global_grid():
-
-    E_axis = np.arange(global_E_min, global_E_max + global_E_step, global_E_step)
-    A_axis = np.arange(global_A_min, global_A_max + global_A_step, global_A_step)
+    
+    E_axis = np.linspace(global_E_min, \
+                         global_E_max, \
+                         int((global_E_max - global_E_min) / global_E_step) + 1)
+    A_axis = np.linspace(global_A_min, \
+                         global_A_max, \
+                         int((global_A_max - global_A_min) / global_A_step) + 1)
 
     return E_axis, A_axis
 
@@ -42,7 +46,7 @@ def place_image_on_grid(E_vals, A_vals, cx_vals):
     for i in range(len(cx_vals)):
         ei, ai = E_idx[i], A_idx[i]
         image[0, ei, ai] = cx_vals[i]
-        image[1, ei, ai] = 0.0 # mask set to zero initially
+        image[1, ei, ai] = 1.0 # mask set to one initially
 
     return image
 
@@ -51,20 +55,24 @@ def random_grid():
     E_min, E_max, E_step = utils.random_energy_range()
     A_min, A_max, A_step = utils.random_angle_range()
 
-    E_axis = np.arange(E_min, E_max + E_step, E_step)
-    A_axis = np.arange(A_min, A_max + A_step, A_step)
+    E_axis = np.linspace(E_min, \
+                         E_max, \
+                         int((E_max - E_min) / E_step) + 1)
+    A_axis = np.linspace(A_min, \
+                         A_max, \
+                         int((A_max - A_min) / A_step) + 1)
 
     return E_axis, A_axis
 
 def crop_image(image):
 
-    image[1, :, :] = 0.0
+    image[1, :, :] = 0.0 # set whole mask to zero
 
     global_E_axis, global_A_axis = global_grid()
     random_E_axis, random_A_axis = random_grid()
 
-    A_idx = np.searchsorted(global_A_axis, random_A_axis)
     E_idx = np.searchsorted(global_E_axis, random_E_axis)
+    A_idx = np.searchsorted(global_A_axis, random_A_axis)
 
     for E in E_idx:
         for A in A_idx:
@@ -87,8 +95,6 @@ def get_images(train_path, log=True, compressed=True):
     images = []
 
     for i in range(n):
-
-        print(i)
 
         print(f'get_images starting on {i}...')
 
