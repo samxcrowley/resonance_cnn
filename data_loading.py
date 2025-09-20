@@ -18,8 +18,8 @@ IMG_DUP = 10
 
 def global_grid():
 
-    E_axis = np.arange(global_E_min, global_E_max, global_E_step)
-    A_axis = np.arange(global_A_min, global_A_max, global_A_step)
+    E_axis = np.arange(global_E_min, global_E_max + global_E_step, global_E_step)
+    A_axis = np.arange(global_A_min, global_A_max + global_A_step, global_A_step)
 
     return E_axis, A_axis
 
@@ -51,8 +51,8 @@ def random_grid():
     E_min, E_max, E_step = utils.random_energy_range()
     A_min, A_max, A_step = utils.random_angle_range()
 
-    E_axis = np.arange(E_min, E_max, E_step)
-    A_axis = np.arange(A_min, A_max, A_step)
+    E_axis = np.arange(E_min, E_max + E_step, E_step)
+    A_axis = np.arange(A_min, A_max + A_step, A_step)
 
     return E_axis, A_axis
 
@@ -87,6 +87,8 @@ def get_images(train_path, log=True, compressed=True):
     images = []
 
     for i in range(n):
+
+        print(i)
 
         print(f'get_images starting on {i}...')
 
