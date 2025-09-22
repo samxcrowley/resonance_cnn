@@ -2,13 +2,18 @@
 
 This is a collection of models to identify and predict resonances and their properties from nuclear scattering cross-sections. For now, the model is only trained on $^{12}\text{C} + \alpha \to {}^{12}\text{C} + \alpha$ scattering data.
 
+# Usage
+
+- TODO: Script to generate data (turn `.gz` training data into `.pt` images data, placed on the grid and cropped)
+- Run the model by calling `python3 train.py`. This will prompt you for training data path, images data path, subset size (how many samples to train on), batch size, number of epochs, and number of works (for multiple CPU cores)
+- Results data, including train/val loss and train/val MAE over all epochs, are saved as .csv files in `results/`
+- Plot results data with `utils.plot_results(filename)`. Plots are saved to `plots/results/`
+
 # Input
 
 Here, nuclear cross-section data are treated and referred to as images as they can very sensibly be visualised as such, and our machine learning techniques are borrowed from image classification and feature detection.
 
 ## Images
-
-Image data are saved to `data/images`.
 
 - Images are placed on a global data grid, which has axes defined in `data_loading.py`
 - Each image has 2 channels; the cross-section value and a visibility mask
@@ -39,6 +44,3 @@ There are two models:
 # Output
 
 For now, the model only predicts the energy level of detected resonances. Soon (hopefully) it will be extended to predict total width, spin, parity, partial widths ...
-
-## Training data
-Training data, including train/val loss and train/val MAE over all epochs, are saved as .csv files in `data/training_data`.
