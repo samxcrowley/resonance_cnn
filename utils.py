@@ -3,48 +3,28 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 import pandas as pd
-import math
 import os
-import random
 import data_loading
 
-def pick_by_dist(vals, probs):
+def random_range(minimum, maximum, step, strength):
 
-    n = len(probs)
-    split_size = int(len(vals) / n)
-
-    p = np.random.random()
-
-    for i in range(len(probs)):
-        _p = probs[i]
-        if p < _p:
-            split_start = i * split_size
-            split_end = split_start + split_size
-            return random.choice(vals[split_start:split_end])
-
-def random_energy_range():
-
-    E_step = random.choice([0.1, 0.2, 0.3, 0.4, 0.5])
-
-    E_axis, _ = data_loading.global_grid()
-
-    n = len(E_axis)
-
-    E_min = round(pick_by_dist(E_axis[:int(n / 2)], [0.75, 1.0]), 2)
-    E_max = round(pick_by_dist(E_axis[int(n / 2):], [0.75, 0.9, 1.0]), 2)
-
-    return E_min, E_max, E_step
-
-def random_angle_range():
-
-    n = random.choice([3, 4, 5, 6, 7])
+    axis = np.linspace(minimum, \
+                         maximum, \
+                         int((maximum - minimum) / step) + 1)
     
-    _, A_axis = data_loading.global_grid()
-    
-    A_max = random.choice(A_axis[int(len(A_axis) / 2):])
-    A_min = A_max - (data_loading.global_A_step * n)
+    n = len(axis)
 
-    return A_min, A_max, data_loading.global_A_step
+    subset_length_minimum = n * (0.5 * (1 - strength))
+    subset_length_maximum = n * (1 - strength)
+
+    subset_length = int(np.random.uniform(subset_length_minimum, subset_length_maximum))
+
+    minimum_upper_limit = maximum - (subset_length * step)
+    
+    minimum_ = round(np.random.uniform(minimum, minimum_upper_limit), 1)
+    maximum_ = round(minimum_ + (subset_length * step), 1)
+
+    return minimum_, maximum_
 
 def plot_image(image, name):
 

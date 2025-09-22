@@ -50,26 +50,33 @@ def place_image_on_grid(E_vals, A_vals, cx_vals):
 
     return image
 
-def random_grid():
+def random_grid(strength):
 
-    E_min, E_max, E_step = utils.random_energy_range()
-    A_min, A_max, A_step = utils.random_angle_range()
+    E_min, E_max = utils.random_range(global_E_min, \
+                                        global_E_max, \
+                                        global_E_step, \
+                                        strength)
+    
+    A_min, A_max = utils.random_range(global_A_min, \
+                                        global_A_max, \
+                                        global_A_step, \
+                                        strength)
 
     E_axis = np.linspace(E_min, \
                          E_max, \
-                         int((E_max - E_min) / E_step) + 1)
+                         int((E_max - E_min) / global_E_step) + 1)
     A_axis = np.linspace(A_min, \
                          A_max, \
-                         int((A_max - A_min) / A_step) + 1)
+                         int((A_max - A_min) / global_A_step) + 1)
 
     return E_axis, A_axis
 
-def crop_image(image):
+def crop_image(image, strength=0.5):
 
     image[1, :, :] = 0.0 # set whole mask to zero
 
     global_E_axis, global_A_axis = global_grid()
-    random_E_axis, random_A_axis = random_grid()
+    random_E_axis, random_A_axis = random_grid(strength)
 
     E_idx = np.searchsorted(global_E_axis, random_E_axis)
     A_idx = np.searchsorted(global_A_axis, random_A_axis)
