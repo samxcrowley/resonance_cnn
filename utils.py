@@ -63,7 +63,7 @@ def plot_image(image, name):
     plt.colorbar(label="dsdO")
     plt.xlabel("Angle")
     plt.ylabel("Energy")
-    plt.savefig(f'images/{name}')
+    plt.savefig(f'plots/{name}')
 
 def sobel(image):
     
