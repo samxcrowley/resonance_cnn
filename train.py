@@ -205,7 +205,7 @@ def main():
 
     # save training data
     training_data_filename = \
-        f'{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
+        f'results/{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
 
     df = pd.DataFrame(history)
     df.to_csv(training_data_filename, index=False)
