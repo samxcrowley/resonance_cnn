@@ -2,28 +2,28 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset, random_split, Subset
+from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 import utils
 import model
 import partial_model
 import data_loading
 import sys
-import math
+import os
 
 SEED = 22
 
-path = 'data/o16/o16_training.gz'
+training_path = f'data/o16/o16_training_small.gz'
+images_path = f'data/images.pt'
 
-num_workers = 16
+num_workers = 32
+subset_size = 500
 
 # training
-n_epochs = 100
+num_epochs = 100
 batch_size = 32
 lr = 1e-4
 weight_decay = 1e-4
-
-subset_size = 500
 
 # model params.
 using_partial_model = True
@@ -114,12 +114,8 @@ def main():
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
-    
-    images_path = f'data/images.pt'
 
-    images = data_loading.get_images(path)
-    torch.save(images, images_path)
-    # images = torch.load(images_path)
+    images = torch.load(images_path)
 
     print(f'Images at {images_path}')
 
@@ -127,7 +123,7 @@ def main():
     if not using_partial_model:
         images = images[:, 0:1, :, :]
 
-    targets = data_loading.get_targets(path)
+    targets = data_loading.get_targets(training_path, compressed=False)
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
@@ -182,7 +178,7 @@ def main():
         "val_loss": [], "val_loss_E": [], "val_mae_E": []
     }
 
-    for epoch in range(1, n_epochs + 1):
+    for epoch in range(1, num_epochs + 1):
 
         train_m = train_epoch(net, train_loader, optimizer, device, grad_clip=1.0)
         val_m = eval_epoch(net, val_loader, device)
@@ -207,12 +203,27 @@ def main():
                 f" | val MAE {val_m['mae_E']:.4f}"
             )
 
-    training_data_path = f'data/last_training_data.csv'
+    # save training data
+    training_data_filename = \
+        f'{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
 
     df = pd.DataFrame(history)
-    df.to_csv(training_data_path, index=False)
+    df.to_csv(training_data_filename, index=False)
 
-    print(f'Training data saved to {training_data_path}')
+    print(f'Training data saved to {training_data_filename}')
 
 if __name__ == "__main__":
+
+    # prompt user for parameters
+    training_path = input("Training data path: ")
+    images_path = input("Input images path: ")
+    subset_size = int(input("Subset size: "))
+    num_epochs = int(input("Num. epochs: "))
+    batch_size = int(input("Batch size: "))
+    num_workers = int(input("Num. workers: "))
+
+    print()
+    print("------------------------------------")
+    print()
+
     main()
