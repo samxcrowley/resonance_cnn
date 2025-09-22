@@ -125,7 +125,7 @@ def main():
     if not using_partial_model:
         images = images[:, 0:1, :, :]
 
-    targets = data_loading.get_targets(training_path, compressed=False)
+    targets = data_loading.get_targets(training_path)
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
@@ -216,7 +216,7 @@ def main():
 
     # save results data
     results_filename = \
-        f'results/{using_partial_model}-partial_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
+        f'results/{using_partial_model}-partial_{cropping_strength}crop_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
 
     os.makedirs(os.path.dirname(results_filename), exist_ok=True)
 
