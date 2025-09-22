@@ -172,7 +172,7 @@ def main():
 
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 
-    history = {
+    results = {
         "epoch": [],
         "train_loss": [], "train_loss_E": [], "train_mae_E": [],
         "val_loss": [], "val_loss_E": [], "val_mae_E": []
@@ -185,14 +185,14 @@ def main():
 
         # scheduler.step(val_m['loss'])
 
-        history["epoch"].append(epoch)
-        history["train_loss"].append(train_m["loss"])
-        history["train_loss_E"].append(train_m["loss_E"])
-        history["train_mae_E"].append(train_m["mae_E"])
+        results["epoch"].append(epoch)
+        results["train_loss"].append(train_m["loss"])
+        results["train_loss_E"].append(train_m["loss_E"])
+        results["train_mae_E"].append(train_m["mae_E"])
 
-        history["val_loss"].append(val_m["loss"])
-        history["val_loss_E"].append(val_m["loss_E"])
-        history["val_mae_E"].append(val_m["mae_E"])
+        results["val_loss"].append(val_m["loss"])
+        results["val_loss_E"].append(val_m["loss_E"])
+        results["val_mae_E"].append(val_m["mae_E"])
 
         if epoch % 5 == 0:
             print(
@@ -203,14 +203,16 @@ def main():
                 f" | val MAE {val_m['mae_E']:.4f}"
             )
 
-    # save training data
-    training_data_filename = \
+    # save results data
+    results_filename = \
         f'results/{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
 
-    df = pd.DataFrame(history)
-    df.to_csv(training_data_filename, index=False)
+    os.makedirs(os.path.dirname(results_filename), exist_ok=True)
 
-    print(f'Training data saved to {training_data_filename}')
+    df = pd.DataFrame(results)
+    df.to_csv(results_filename, index=False)
+
+    print(f'Results saved to {results_filename}')
 
 if __name__ == "__main__":
 

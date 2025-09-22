@@ -10,10 +10,8 @@ __pycache__/
 *.png
 
 twobody/
-reference/
-docs/
 data/
 plots/
-images/
+results/
 
 testing.py

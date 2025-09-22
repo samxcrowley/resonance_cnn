@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 import pandas as pd
 import math
+import os
 import random
 import data_loading
 
@@ -63,7 +64,28 @@ def plot_image(image, name):
     plt.colorbar(label="dsdO")
     plt.xlabel("Angle")
     plt.ylabel("Energy")
-    plt.savefig(f'plots/{name}')
+
+    filename = f'plots/images/{name}.png'
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    plt.savefig(filename, dpi=150)
+
+def plot_results(results_name):
+
+    df = pd.read_csv(f'results/{results_name}.csv')
+
+    plt.figure()
+    plt.plot(df["epoch"], df["train_loss"], label="train loss")
+    plt.plot(df["epoch"], df["val_loss"], label="val loss")
+    plt.plot(df["epoch"], df["train_mae_E"], label="MAE")
+    plt.xlabel("epoch")
+    plt.ylabel("loss")
+    plt.title("Total loss")
+    plt.legend()
+    plt.tight_layout()
+
+    filename = f'plots/results/{results_name}.png'
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    plt.savefig(filename, dpi=150)
 
 def sobel(image):
     
@@ -96,18 +118,3 @@ def normalise(x, min_val=None, max_val=None):
     if max_val is None:
         max_val = x.max()
     return (x - min_val) / (max_val - min_val + 1e-8)
-
-def plot_training_data(train_data, name):
-
-    df = pd.read_csv(train_data)
-
-    plt.figure()
-    plt.plot(df["epoch"], df["train_loss"], label="train loss")
-    plt.plot(df["epoch"], df["val_loss"], label="val loss")
-    plt.plot(df["epoch"], df["train_mae_E"], label="MAE")
-    plt.xlabel("epoch")
-    plt.ylabel("loss")
-    plt.title("Total loss")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f'plots/{name}', dpi=150)
