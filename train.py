@@ -162,11 +162,13 @@ def main():
                                                 base=base,
                                                 dropout_p=dropout_p,
                                                 kernel_size=kernel_size).to(device)
+        print('Loaded partial CNN')
     else:
         net = model.ResonanceCNN(in_ch=in_ch,
                                  base=base,
                                  dropout_p=dropout_p,
                                  kernel_size=kernel_size).to(device)
+        print('Loaded regular CNN')
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -205,7 +207,7 @@ def main():
 
     # save results data
     results_filename = \
-        f'results/{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
+        f'results/{using_partial_model}-partial_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
 
     os.makedirs(os.path.dirname(results_filename), exist_ok=True)
 
@@ -217,6 +219,8 @@ def main():
 if __name__ == "__main__":
 
     # prompt user for parameters
+    partial = input("Use partial CNN? (y/n): ").strip().lower()
+    using_partial_model = (partial == "y")
     training_path = input("Training data path: ")
     images_path = input("Input images path: ")
     subset_size = int(input("Subset size: "))
