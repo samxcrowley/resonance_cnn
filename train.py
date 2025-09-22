@@ -19,6 +19,8 @@ images_path = f'data/images.pt'
 num_workers = 32
 subset_size = 500
 
+cropping_strength = 0.0
+
 # training
 num_epochs = 100
 batch_size = 32
@@ -123,7 +125,7 @@ def main():
     if not using_partial_model:
         images = images[:, 0:1, :, :]
 
-    targets = data_loading.get_targets(training_path)
+    targets = data_loading.get_targets(training_path, compressed=False)
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
@@ -133,8 +135,15 @@ def main():
     print(f'Images shape: {images.shape}')
     print(f'Targets shape: {targets.shape}')
     if images.size(0) != targets.size(0):
-        print('\nWarning: no. images does not match no. targets!! Exiting.\n')
+        print('\nNo. images does not match no. targets!! Exiting.\n')
         sys.exit(0)
+
+    # crop images
+    if using_partial_model and cropping_strength > 0.0:
+        print('Cropping images...')
+        for i in range(len(images)):
+            images[i] = data_loading.crop_image(images[i], cropping_strength)
+    print(f'Images cropped with strength {cropping_strength}')
 
     dataset = data_loading.ResonanceDataset(images, targets, gradients=gradients)
 
@@ -145,8 +154,8 @@ def main():
                                      [train_size, val_size], \
                                         generator=torch.Generator().manual_seed(SEED))
     
-    print(f'Training size: f{len(train_dataset)}')
-    print(f'Validation size: f{len(val_dataset)}')
+    print(f'Training size: {len(train_dataset)}')
+    print(f'Validation size: {len(val_dataset)}')
     
     train_loader = DataLoader(train_dataset,
                               batch_size=batch_size,
@@ -224,6 +233,7 @@ if __name__ == "__main__":
     training_path = input("Training data path: ")
     images_path = input("Input images path: ")
     subset_size = int(input("Subset size: "))
+    cropping_strength = float(input("Cropping strength: "))
     num_epochs = int(input("Num. epochs: "))
     batch_size = int(input("Batch size: "))
     num_workers = int(input("Num. workers: "))
