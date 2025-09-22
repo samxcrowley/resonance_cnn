@@ -123,7 +123,7 @@ def main():
     if not using_partial_model:
         images = images[:, 0:1, :, :]
 
-    targets = data_loading.get_targets(training_path, compressed=False)
+    targets = data_loading.get_targets(training_path)
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
