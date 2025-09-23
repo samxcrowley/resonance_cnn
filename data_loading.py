@@ -73,7 +73,9 @@ def random_grid(strength):
 
 def crop_image(image, strength=0.5):
 
-    image[1, :, :] = 0.0 # set whole mask to zero
+    # image[1, :, :] = 0.0 # set whole mask to zero
+
+    cx_copy = torch.zeros_like(image[0, :, :])
 
     global_E_axis, global_A_axis = global_grid()
     random_E_axis, random_A_axis = random_grid(strength)
@@ -83,7 +85,9 @@ def crop_image(image, strength=0.5):
 
     for E in E_idx:
         for A in A_idx:
-            image[1, E, A] = 1.0
+            cx_copy[E, A] = image[0, E, A]
+
+    image[0] = cx_copy
 
     return image
 
