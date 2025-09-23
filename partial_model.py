@@ -24,7 +24,6 @@ class PartialConv2D(nn.Module):
 
         self.weight = nn.Parameter(torch.empty(out_ch, in_ch, kernel_size, kernel_size))
         nn.init.kaiming_normal_(self.weight, nonlinearity='relu')
-        # nn.init.ones_(self.weight)
 
         self.bias = nn.Parameter(torch.zeros(out_ch)) if bias else None
         if self.bias is not None:
@@ -83,9 +82,11 @@ class PartialConv2D(nn.Module):
 
 class ResonancePartialCNN(nn.Module):
 
-    def __init__(self, in_ch=1, base=80, dropout_p=0.3, kernel_size=3):
+    def __init__(self, in_ch=1, base=80, dropout_p=0.3, kernel_size=3, equiv_mode=False):
 
         super().__init__()
+
+        self.equiv_mode = equiv_mode
 
         self.p1 = PartialConv2D(in_ch=in_ch, out_ch=base, kernel_size=kernel_size)
         # self.gn1 = nn.GroupNorm(8, base)
@@ -115,7 +116,38 @@ class ResonancePartialCNN(nn.Module):
         self.head_E = nn.Linear(128, 1)
         # self.head_G = nn.Linear(128, 1)
 
+        # equiv:
+        self.conv1 = nn.Conv2d(in_ch, base, kernel_size=kernel_size, padding='same')
+        self.bn1 = nn.BatchNorm2d(base)
+
+        self.conv2 = nn.Conv2d(base, base * 2, kernel_size=kernel_size, padding='same')
+        self.bn2 = nn.BatchNorm2d(base * 2)
+
+        self.conv3 = nn.Conv2d(base * 2, base * 4, kernel_size=kernel_size, padding='same')
+        self.bn3 = nn.BatchNorm2d(base * 4)
+
+        self.conv4 = nn.Conv2d(base * 4, base * 8, kernel_size=kernel_size, padding='same')
+        self.bn4 = nn.BatchNorm2d(base * 8)
+
     def forward(self, x):
+
+        if (self.equiv_mode):
+
+            # x shape: (N, 2, E, A)
+            x = self.pool(F.relu(self.bn1(self.conv1(x)))) # (N, base, E/2, A)
+            x = self.pool(F.relu(self.bn2(self.conv2(x)))) # (N, 2 * base, E/4, A)
+            x = self.pool(F.relu(self.bn3(self.conv3(x)))) # (N, 4 * base, E/8, A)
+            x = self.pool(F.relu(self.bn4(self.conv4(x)))) # (N, 8 * base, E/16, A)
+            x = self.gap(x).flatten(1) # (N, 8 * base)
+
+            x = F.relu(self.fc1(x))
+            x = self.dropout(F.relu(self.fc2(x)))
+
+            Er_unit = torch.sigmoid(self.head_E(x)).squeeze(-1) # (N,)
+            # logGamma = self.head_G(x).squeeze(-1) # (N,)
+
+            # return Er_unit, logGamma
+            return Er_unit
 
         data = x[:, 0:1, :, :]
         mask = x[:, 1:2, :, :].clamp(0, 1)

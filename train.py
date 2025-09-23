@@ -143,7 +143,7 @@ def main():
         print('Cropping images...')
         for i in range(len(images)):
             images[i] = data_loading.crop_image(images[i], cropping_strength)
-    print(f'Images cropped with strength {cropping_strength}')
+        print(f'Images cropped with strength {cropping_strength}')
 
     dataset = data_loading.ResonanceDataset(images, targets, gradients=gradients)
 
@@ -170,7 +170,8 @@ def main():
         net = partial_model.ResonancePartialCNN(in_ch=in_ch,
                                                 base=base,
                                                 dropout_p=dropout_p,
-                                                kernel_size=kernel_size).to(device)
+                                                kernel_size=kernel_size,
+                                                equiv_mode=True).to(device)
         print('Loaded partial CNN')
     else:
         net = model.ResonanceCNN(in_ch=in_ch,
