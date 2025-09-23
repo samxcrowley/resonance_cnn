@@ -117,8 +117,9 @@ class ResonancePartialCNN(nn.Module):
 
     def forward(self, x):
 
-        x = x[:, :1, :, :]
-        mask = x[:, -1:, :, :].clamp(0,1)
+        data = x[:, 0:1, :, :]
+        mask = x[:, 1:2, :, :].clamp(0, 1)
+        x = data
 
         # block 1
         x, mask = self.p1(x, mask)
