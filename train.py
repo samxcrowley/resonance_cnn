@@ -173,7 +173,7 @@ def main():
                                                 base=base,
                                                 dropout_p=dropout_p,
                                                 kernel_size=kernel_size,
-                                                equiv_mode=True).to(device)
+                                                equiv_mode=False).to(device)
         print('Loaded partial CNN')
     else:
         net = model.ResonanceCNN(in_ch=in_ch,
