@@ -73,6 +73,10 @@ def random_grid(strength):
 
 def crop_image(image, strength=0.5):
 
+    if strength == 0.0:
+        image[1, :, :] = 1.0
+        return image
+
     image[1, :, :] = 0.0 # set whole mask to zero
 
     global_E_axis, global_A_axis = global_grid()
