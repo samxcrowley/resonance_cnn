@@ -125,7 +125,7 @@ def main():
     if not using_partial_model:
         images = images[:, 0:1, :, :]
 
-    images = images[:, 0:1, :, :]
+    # images = images[:, 0:1, :, :]
 
     targets = data_loading.get_targets(training_path)
 
