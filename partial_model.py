@@ -43,7 +43,7 @@ class PartialConv2D(nn.Module):
 
         p = self.padding
         x_pad = F.pad(x, (p, p, p, p), mode='constant', value=0.0)
-        mask_pad = F.pad(mask, (p, p, p, p), mode='constant', value=0.0)
+        mask_pad = F.pad(mask, (p, p, p, p), mode='constant', value=1.0)
 
         x_unfold = F.unfold(x_pad, \
                             kernel_size=(self.kernel_size, self.kernel_size), \
