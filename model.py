@@ -19,7 +19,7 @@ import utils
 
 class ResonanceCNN(nn.Module):
 
-    def __init__(self, in_ch=2, base=80, dropout_p=0.3, kernel_size=3):
+    def __init__(self, in_ch=1, base=80, dropout_p=0.3, kernel_size=3):
 
         super().__init__()
 

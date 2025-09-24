@@ -4,173 +4,79 @@ import torch.nn.functional as F
 
 import numpy as np
 
-# class PartialConv2D(nn.Module):
-
-#     def __init__(self, in_ch, out_ch, kernel_size=3, stride=1, padding='same', bias=True):
-
-#         super().__init__()
-
-#         self.in_ch = in_ch
-#         self.out_ch = out_ch
-#         self.kernel_size = kernel_size
-#         self.stride = stride
-#         self.bias = bias
-
-#         if padding == 'same':
-#             self.padding = self.kernel_size // 2
-
-#         # scaling factor -- number of params. in a window
-#         self.K = in_ch * kernel_size * kernel_size
-
-#         self.weight = nn.Parameter(torch.empty(out_ch, in_ch, kernel_size, kernel_size))
-#         nn.init.kaiming_normal_(self.weight, nonlinearity='relu')
-
-#         self.bias = nn.Parameter(torch.zeros(out_ch)) if bias else None
-#         if self.bias is not None:
-#             nn.init.zeros_(self.bias)
-
-#     def forward(self, x, mask):
-
-#         N = x.size(0)
-#         C = x.size(1)
-#         E = x.size(2)
-#         A = x.size(3)
-
-#         # broadcast mask along channels if needed
-#         if mask.size(1) == 1 and C > 1:
-#             mask = mask.repeat(1, C, 1, 1)
-
-#         p = self.padding
-#         x_pad = F.pad(x, (p, p, p, p), mode='constant', value=0.0)
-#         mask_pad = F.pad(mask, (p, p, p, p), mode='constant', value=1.0)
-
-#         x_unfold = F.unfold(x_pad, \
-#                             kernel_size=(self.kernel_size, self.kernel_size), \
-#                             stride=(self.stride, self.stride))
-#         mask_unfold = F.unfold(mask_pad, \
-#                             kernel_size=(self.kernel_size, self.kernel_size), \
-#                             stride=(self.stride, self.stride))
-        
-#         valid_count = mask_unfold.sum(dim=1, keepdim=True)
-
-#         x_mask_unfold = x_unfold * mask_unfold
-
-#         weight_flat = self.weight.view(self.out_ch, -1)
-
-#         # convolution
-#         y_flat = torch.einsum('ok,nkl->nol', weight_flat, x_mask_unfold)
-
-#         # scale
-#         scale = (self.K / valid_count.clamp(min=1.0))
-#         y_flat = y_flat * scale
-
-#         if self.bias is not None:
-#             y_flat = y_flat + self.bias.view(1, -1, 1)
-
-#         no_valid = (valid_count <= 0)
-#         if no_valid.any():
-#             y_flat = y_flat.masked_fill(no_valid.expand_as(y_flat), 0.0)
-
-#         # reshape back to (N, Cout, E, A)
-#         E_out = (E + 2 * p - self.kernel_size) // self.stride + 1
-#         A_out = (A + 2 * p - self.kernel_size) // self.stride + 1
-#         y = y_flat.view(N, self.out_ch, E_out, A_out)
-
-#         mask_next = (~no_valid).to(x.dtype).view(N, 1, E_out, A_out)
-
-#         return y, mask_next
-
 class PartialConv2D(nn.Module):
-    """
-    Robust partial conv that collapses to Conv2d when mask==ones.
-    - treat_padding_as_hole=False  -> padding acts like valid zeros (matches Conv2d semantics)
-    - use_coverage=True            -> scales by local kernel coverage so edges are not over-amplified
-    """
-    def __init__(self, in_ch, out_ch, kernel_size=3, stride=1,
-                 padding='same', bias=True,
-                 treat_padding_as_hole=False, use_coverage=True):
+
+    def __init__(self, in_ch, out_ch, kernel_size=3, stride=1, padding='same', bias=True):
+
         super().__init__()
+
         self.in_ch = in_ch
         self.out_ch = out_ch
         self.kernel_size = kernel_size
         self.stride = stride
-        self.use_coverage = use_coverage
-        self.treat_padding_as_hole = treat_padding_as_hole
+        self.bias = bias
 
         if padding == 'same':
-            self.padding = kernel_size // 2
-        else:
-            self.padding = int(padding)
+            self.padding = self.kernel_size // 2
 
-        # Max window size across channels
+        # scaling factor -- number of params. in a window
         self.K = in_ch * kernel_size * kernel_size
 
         self.weight = nn.Parameter(torch.empty(out_ch, in_ch, kernel_size, kernel_size))
         nn.init.kaiming_normal_(self.weight, nonlinearity='relu')
+
         self.bias = nn.Parameter(torch.zeros(out_ch)) if bias else None
-
-        # ones kernel (1, C, k, k) – sums valids across channels and kernel window
-        self.register_buffer('ones_kernel', torch.ones(1, in_ch, kernel_size, kernel_size))
-
-        # what value to pad the mask with at image borders
-        self.pad_mask_value = 0.0 if treat_padding_as_hole else 1.0
+        if self.bias is not None:
+            nn.init.zeros_(self.bias)
 
     def forward(self, x, mask):
-        """
-        x:    (N, C, H, W)
-        mask: (N, 1 or C, H, W), binary {0,1} ideally
-        returns: y, mask_next
-        """
-        N, C, H, W = x.shape
-        assert C == self.in_ch, f"Expected {self.in_ch} input channels, got {C}"
 
-        # broadcast mask to C channels if needed
+        N = x.size(0)
+        C = x.size(1)
+        E = x.size(2)
+        A = x.size(3)
+
+        # broadcast mask along channels if needed
         if mask.size(1) == 1 and C > 1:
             mask = mask.repeat(1, C, 1, 1)
-        elif mask.size(1) != C:
-            raise ValueError(f"Mask must have 1 or {C} channels, got {mask.size(1)}")
 
         p = self.padding
-        if p > 0:
-            x_pad    = F.pad(x,    (p, p, p, p), value=0.0)
-            mask_pad = F.pad(mask, (p, p, p, p), value=self.pad_mask_value)
-        else:
-            x_pad, mask_pad = x, mask
+        x_pad = F.pad(x, (p, p, p, p), mode='constant', value=0.0)
+        mask_pad = F.pad(mask, (p, p, p, p), mode='constant', value=1.0)
 
-        # valid_count: how many valid entries in each window (sum across C and kxk)
-        valid_count = F.conv2d(mask_pad, self.ones_kernel, bias=None,
-                               stride=self.stride, padding=0)  # (N,1,Hout,Wout)
+        x_unfold = F.unfold(x_pad, \
+                            kernel_size=(self.kernel_size, self.kernel_size), \
+                            stride=(self.stride, self.stride))
+        mask_unfold = F.unfold(mask_pad, \
+                            kernel_size=(self.kernel_size, self.kernel_size), \
+                            stride=(self.stride, self.stride))
+        
+        valid_count = mask_unfold.sum(dim=1, keepdim=True)
 
-        # masked conv (no bias yet)
-        y = F.conv2d(x_pad * mask_pad, self.weight, bias=None,
-                     stride=self.stride, padding=0)           # (N,O,Hout,Wout)
+        x_mask_unfold = x_unfold * mask_unfold
 
-        # scale: either by local coverage/valids (edge aware) or K/valids (classic)
-        if self.use_coverage:
-            # local kernel coverage (how many kernel positions overlap the image)
-            ones = torch.ones_like(mask)                      # (N,C,H,W)
-            if p > 0:
-                ones = F.pad(ones, (p, p, p, p), value=0.0)   # outside image = 0
-            coverage = F.conv2d(ones, self.ones_kernel, bias=None,
-                                stride=self.stride, padding=0)  # (N,1,Hout,Wout)
-            scale = coverage / valid_count.clamp(min=1.0)
-        else:
-            # classic partial conv scaling
-            scale = (self.K / valid_count.clamp(min=1.0))
+        weight_flat = self.weight.view(self.out_ch, -1)
 
-        y = y * scale
+        # convolution
+        y_flat = torch.einsum('ok,nkl->nol', weight_flat, x_mask_unfold)
+
+        # scale
+        scale = (self.K / valid_count.clamp(min=1.0))
+        y_flat = y_flat * scale
 
         if self.bias is not None:
-            y = y + self.bias.view(1, -1, 1, 1)
+            y_flat = y_flat + self.bias.view(1, -1, 1)
 
-        # any window with zero valid pixels -> zero output and 0 mask
         no_valid = (valid_count <= 0)
         if no_valid.any():
-            y = y.masked_fill(no_valid.expand_as(y), 0.0)
+            y_flat = y_flat.masked_fill(no_valid.expand_as(y_flat), 0.0)
 
-        Hout = (H + 2 * p - self.kernel_size) // self.stride + 1
-        Wout = (W + 2 * p - self.kernel_size) // self.stride + 1
-        mask_next = (~no_valid).to(x.dtype).view(N, 1, Hout, Wout)
+        # reshape back to (N, Cout, E, A)
+        E_out = (E + 2 * p - self.kernel_size) // self.stride + 1
+        A_out = (A + 2 * p - self.kernel_size) // self.stride + 1
+        y = y_flat.view(N, self.out_ch, E_out, A_out)
+
+        mask_next = (~no_valid).to(x.dtype).view(N, 1, E_out, A_out)
 
         return y, mask_next
 
