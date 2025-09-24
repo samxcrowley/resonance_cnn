@@ -91,7 +91,7 @@ def crop_image(image, strength=0.5):
 
     return image
 
-def get_images(train_path, log=True, compressed=True):
+def get_images(train_path, crop_strength, log=True, compressed=True):
 
     if compressed:
         with gzip.open(train_path, 'rb') as f:
@@ -129,7 +129,7 @@ def get_images(train_path, log=True, compressed=True):
         for j in range(IMG_DUP):
             image = place_image_on_grid(E_vals, A_vals, cx_vals)
             print(f'cropping {i}, {j}...')
-            image = crop_image(image)
+            image = crop_image(image, crop_strength)
             images.append(image)
 
     return torch.stack(images, dim=0)
