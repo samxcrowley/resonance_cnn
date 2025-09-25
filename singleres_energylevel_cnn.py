@@ -56,21 +56,21 @@ class SingleRes_EnergyLevel_CNN(nn.Module):
         # stage 1
         h = F.relu(self.bn1(self.conv1(torch.cat([img, mask], dim=1)))) # keep both channels for 1st conv
         h = self.pool(h)
-        m = self.pool(m) # keep mask in sync (downsample E)
+        mask = self.pool(mask) # keep mask in sync (downsample E)
 
         # stage 2
-        h = F.relu(self.bn2(self.conv2(h)));
-        h = self.pool(h);
+        h = F.relu(self.bn2(self.conv2(h)))
+        h = self.pool(h)
         mask = self.pool(mask)
 
         # stage 3
-        h = F.relu(self.bn3(self.conv3(h)));
-        h = self.pool(h);
+        h = F.relu(self.bn3(self.conv3(h)))
+        h = self.pool(h)
         mask = self.pool(mask)
 
         # stage 4
-        h = F.relu(self.bn4(self.conv4(h)));
-        h = self.pool(h);
+        h = F.relu(self.bn4(self.conv4(h)))
+        h = self.pool(h)
         mask = self.pool(mask)
 
         # masked global average pooling
