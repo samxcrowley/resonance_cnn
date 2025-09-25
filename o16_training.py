@@ -11,7 +11,7 @@ from twobody.twobody.models.pointcoulomb import PointCoulomb;
 
 import matplotlib.pyplot as plt;
 
-rm = PhenomenologicalRmatrix.load_complete("sam_o16",compressed=True);
+rm = PhenomenologicalRmatrix.load_complete("data/o16/sam_o16",compressed=True);
 
 header  = { "cn" : { "a":int(rm.cn.a),
                      "z":int(rm.cn.z),

@@ -17,7 +17,7 @@ from sklearn.metrics import confusion_matrix, classification_report
 import data_loading
 import utils
 
-class ResonancePartialCNNv2(nn.Module):
+class SingleRes_EnergyLevel_CNN(nn.Module):
 
     def __init__(self, in_ch=2, base=80, dropout_p=0.3, kernel_size=3):
 
@@ -37,6 +37,7 @@ class ResonancePartialCNNv2(nn.Module):
         self.conv4 = nn.Conv2d(base * 4, base * 8, kernel_size, padding='same', padding_mode=padmode)
         self.bn4 = nn.BatchNorm2d(base * 8)
 
+        # TODO: should A be downsampled too? if res. becomes high enough?
         self.pool = nn.MaxPool2d(kernel_size=(2,1), stride=(2,1)) # downsample E only
 
         self.fc1 = nn.Linear(base * 8, 256)
@@ -53,7 +54,7 @@ class ResonancePartialCNNv2(nn.Module):
         mask = x[:, 1:]
 
         # stage 1
-        h = F.relu(self.bn1(self.conv1(torch.cat([img, mask], dim=1))))  # keep both channels for 1st conv
+        h = F.relu(self.bn1(self.conv1(torch.cat([img, mask], dim=1)))) # keep both channels for 1st conv
         h = self.pool(h)
         m = self.pool(m) # keep mask in sync (downsample E)
 
@@ -77,9 +78,9 @@ class ResonancePartialCNNv2(nn.Module):
         mask_b = (mask > 0).float()
 
         # sum over spatial, divide by n. valid
-        denom = mask_b.sum(dim=(2,3), keepdim=False).clamp_min(1e-6)  # (N,1)
-        num = (h * mask_b).sum(dim=(2,3), keepdim=False)              # (N, C)
-        feat = num / denom                                         # (N, C)
+        denom = mask_b.sum(dim=(2,3), keepdim=False).clamp_min(1e-6)
+        num = (h * mask_b).sum(dim=(2,3), keepdim=False)
+        feat = num / denom
 
         x = F.relu(self.fc1(feat))
         x = self.dropout(F.relu(self.fc2(x)))

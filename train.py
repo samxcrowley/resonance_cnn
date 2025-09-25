@@ -5,8 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 import utils
-import model
-import partial_model
+from singleres_energylevel_cnn import SingleRes_EnergyLevel_CNN
 import data_loading
 import sys
 import os
@@ -28,7 +27,6 @@ lr = 1e-4
 weight_decay = 1e-4
 
 # model params.
-using_partial_model = True
 dropout_p = 0.0
 base = 80
 kernel_size = 3
@@ -120,10 +118,6 @@ def main():
 
     print(f'Images at {images_path}')
 
-    # only the partial CNN needs the mask channel
-    if not using_partial_model:
-        images = images[:, 0:1, :, :]
-
     targets = data_loading.get_targets(training_path, compressed=False)
 
     # if we have defined a smaller subset, cut off the unneeded samples
@@ -136,9 +130,8 @@ def main():
     if images.size(0) != targets.size(0):
         print('\nNo. images does not match no. targets!! Exiting.\n')
         sys.exit(0)
-
-    # crop images
-    if using_partial_model and cropping_strength > 0.0:
+    
+    if cropping_strength > 0.0:
         print('Cropping images...')
         for i in range(len(images)):
             images[i] = data_loading.crop_image(images[i], cropping_strength)
@@ -160,27 +153,21 @@ def main():
                               batch_size=batch_size,
                               shuffle=True,
                               num_workers=num_workers)
+    
     val_loader = DataLoader(val_dataset,
                             batch_size=batch_size,
                             shuffle=False,
                             num_workers=num_workers)
 
-    if using_partial_model:
-        net = partial_model.ResonancePartialCNNv2(in_ch=2,
-                                                base=base,
-                                                dropout_p=dropout_p,
-                                                kernel_size=kernel_size).to(device)
-        print('Loaded partial CNN')
-    else:
-        net = model.ResonanceCNN(in_ch=1,
-                                 base=base,
-                                 dropout_p=dropout_p,
-                                 kernel_size=kernel_size).to(device)
-        print('Loaded regular CNN')
+    net = SingleRes_EnergyLevel_CNN(in_ch=2,
+                                    base=base,
+                                    dropout_p=dropout_p,
+                                    kernel_size=kernel_size).to(device)
+    print('Loaded single resonance energy level CNN')
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
 
     results = {
         "epoch": [],
@@ -193,7 +180,7 @@ def main():
         train_m = train_epoch(net, train_loader, optimizer, device, grad_clip=1.0)
         val_m = eval_epoch(net, val_loader, device)
 
-        # scheduler.step(val_m['loss'])
+        scheduler.step(val_m['loss'])
 
         results["epoch"].append(epoch)
         results["train_loss"].append(train_m["loss"])
@@ -215,7 +202,7 @@ def main():
 
     # save results data
     results_filename = \
-        f'results/{using_partial_model}-partial_{cropping_strength}crop_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
+        f'results/{cropping_strength}crop_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
 
     os.makedirs(os.path.dirname(results_filename), exist_ok=True)
 
@@ -227,8 +214,6 @@ def main():
 if __name__ == "__main__":
 
     # prompt user for parameters
-    partial = input("Use partial CNN? (y/n): ").strip().lower()
-    using_partial_model = (partial == "y")
     training_path = input("Training data path: ")
     images_path = input("Input images path: ")
     subset_size = int(input("Subset size: "))
