@@ -127,9 +127,13 @@ def get_images(train_path, crop_strength, log=True, compressed=True):
                 cx_vals.append(p['dsdO'])
 
         for j in range(IMG_DUP):
+            
             image = place_image_on_grid(E_vals, A_vals, cx_vals)
-            print(f'cropping {i}, {j}...')
-            image = crop_image(image, crop_strength)
+
+            if crop_strength > 0.0:
+                print(f'cropping {i}, {j}...')
+                image = crop_image(image, crop_strength)
+
             images.append(image)
 
     return torch.stack(images, dim=0)
