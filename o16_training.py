@@ -50,8 +50,8 @@ for nset in tqdm.tqdm(range(0,1000)) :
     levels=[];
     level_set_info=[];
 
-    # Edit number of levels here
-    for n in range(0,1) :
+    num_levels = np.random.randint(5)
+    for n in range(0, num_levels) :
     
         jpi_set = np.random.choice(rm.jpi_sets);
         j = jpi_set["j"];

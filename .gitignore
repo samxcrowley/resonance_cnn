@@ -13,5 +13,6 @@ twobody/
 data/
 plots/
 results/
+down_results/
 
 testing.py
