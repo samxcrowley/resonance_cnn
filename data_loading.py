@@ -104,7 +104,7 @@ def get_images(train_path, crop_strength, log=True, compressed=True):
 
     n = len(data)
     images = []
-
+    
     for i in range(n):
 
         print(f'get_images starting on {i}...')
@@ -155,6 +155,7 @@ def get_targets(train_path, compressed=True):
         levels = data[i]['levels'][0]
         energy = levels['energy']
         gamma_total = levels['Gamma_total']
+        num_levels = len(data[i]['levels'])
 
         # normalise energy
         points = data[i]['observable_sets'][0]['points']
@@ -168,7 +169,7 @@ def get_targets(train_path, compressed=True):
 
         # duplicate targets to match duplicated (cropped) images
         for i in range(IMG_DUP):
-            tensors.append(torch.tensor([Er_unit, log10_gamma], dtype=torch.float32))
+            tensors.append(torch.tensor([Er_unit, log10_gamma, num_levels], dtype=torch.float32))
 
     return torch.stack(tensors, dim=0)
 
