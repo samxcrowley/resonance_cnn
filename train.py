@@ -30,7 +30,6 @@ weight_decay = 1e-4
 # model params.
 using_partial_model = True
 dropout_p = 0.0
-in_ch = 1
 base = 80
 kernel_size = 3
 gradients = False
@@ -125,7 +124,7 @@ def main():
     if not using_partial_model:
         images = images[:, 0:1, :, :]
 
-    targets = data_loading.get_targets(training_path)
+    targets = data_loading.get_targets(training_path, compressed=False)
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
@@ -167,13 +166,13 @@ def main():
                             num_workers=num_workers)
 
     if using_partial_model:
-        net = partial_model.ResonancePartialCNN(in_ch=in_ch,
+        net = partial_model.ResonancePartialCNNv2(in_ch=2,
                                                 base=base,
                                                 dropout_p=dropout_p,
                                                 kernel_size=kernel_size).to(device)
         print('Loaded partial CNN')
     else:
-        net = model.ResonanceCNN(in_ch=in_ch,
+        net = model.ResonanceCNN(in_ch=1,
                                  base=base,
                                  dropout_p=dropout_p,
                                  kernel_size=kernel_size).to(device)
