@@ -34,7 +34,7 @@ header  = { "cn" : { "a":int(rm.cn.a),
             "jpi_sets" : [ { "j":float(jps["j"]), "parity":float(jps["parity"]),
                              "channels":[ { "pp_index":rm.particle_pairs.index(c.pp),"s":float(c.s), "l":float(c.l)} for c in jps["channels"]]} for jps in rm.jpi_sets ] };
 
-with open("o16_header.json","w") as f :
+with open("data/o16/o16_header.json","w") as f :
     json.dump(header,f,indent=2);
 f.close();
 
@@ -50,7 +50,9 @@ for nset in tqdm.tqdm(range(0,1000)) :
     levels=[];
     level_set_info=[];
 
-    num_levels = np.random.randint(5)
+    # num_levels in [5, 20]
+    num_levels = np.random.randint(15) + 5
+
     for n in range(0, num_levels) :
     
         jpi_set = np.random.choice(rm.jpi_sets);
@@ -97,7 +99,7 @@ for nset in tqdm.tqdm(range(0,1000)) :
     for level in levels :
         rm.remove_level(level);
         
-with gzip.open("o16_training.gz","wb") as f :
+with gzip.open("data/o16/multires_training.gz","wb") as f :
     json_str = json.dumps(training_sets);
     json_bytes = json_str.encode("UTF-8");
     f.write(json_bytes);
