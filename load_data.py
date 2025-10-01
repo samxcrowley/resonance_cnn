@@ -1,95 +1,10 @@
-import json
 import gzip
+import json
+import torch
 import numpy as np
 import pandas as pd
-import torch
+import preprocessing
 from torch.utils.data import Dataset
-import utils
-
-global_E_min = 8.0
-global_E_max = 20.0
-global_E_step = 0.1
-
-global_A_min = 25.0
-global_A_max = 175.0
-global_A_step = 10.0
-
-IMG_DUP = 10
-
-def global_grid():
-    
-    E_axis = np.linspace(global_E_min, \
-                         global_E_max, \
-                         int((global_E_max - global_E_min) / global_E_step) + 1)
-    A_axis = np.linspace(global_A_min, \
-                         global_A_max, \
-                         int((global_A_max - global_A_min) / global_A_step) + 1)
-
-    return E_axis, A_axis
-
-def place_image_on_grid(E_vals, A_vals, cx_vals):
-
-    E_vals = np.array(E_vals)
-    A_vals = np.array(A_vals)
-    cx_vals = np.array(cx_vals)
-
-    E_axis, A_axis = global_grid()
-    num_E = len(E_axis)
-    num_A = len(A_axis)
-
-    image = torch.zeros((2, num_E, num_A))
-
-    # get positions of nearest coordinates on grid
-    E_idx = np.abs(E_vals[:, None] - E_axis[None, :]).argmin(axis=1)
-    A_idx = np.abs(A_vals[:, None] - A_axis[None, :]).argmin(axis=1)
-
-    for i in range(len(cx_vals)):
-        ei, ai = E_idx[i], A_idx[i]
-        image[0, ei, ai] = cx_vals[i]
-        image[1, ei, ai] = 1.0 # mask set to one initially
-
-    return image
-
-def random_grid(strength):
-
-    E_min, E_max = utils.random_range(global_E_min, \
-                                        global_E_max, \
-                                        global_E_step, \
-                                        strength)
-    
-    A_min, A_max = utils.random_range(global_A_min, \
-                                        global_A_max, \
-                                        global_A_step, \
-                                        strength)
-
-    E_axis = np.linspace(E_min, \
-                         E_max, \
-                         int((E_max - E_min) / global_E_step) + 1)
-    A_axis = np.linspace(A_min, \
-                         A_max, \
-                         int((A_max - A_min) / global_A_step) + 1)
-
-    return E_axis, A_axis
-
-def crop_image(image, strength=0.5):
-
-    if strength == 0.0:
-        image[1, :, :] = 1.0
-        return image
-
-    image[1, :, :] = 0.0 # set whole mask to zero
-
-    global_E_axis, global_A_axis = global_grid()
-    random_E_axis, random_A_axis = random_grid(strength)
-
-    E_idx = np.searchsorted(global_E_axis, random_E_axis)
-    A_idx = np.searchsorted(global_A_axis, random_A_axis)
-
-    for E in E_idx:
-        for A in A_idx:
-            image[1, E, A] = 1.0
-
-    return image
 
 def get_images(train_path, crop_strength, log=True, compressed=True):
 
@@ -126,13 +41,13 @@ def get_images(train_path, crop_strength, log=True, compressed=True):
             else:
                 cx_vals.append(p['dsdO'])
 
-        for j in range(IMG_DUP):
+        for j in range(preprocessing.IMG_DUP):
             
-            image = place_image_on_grid(E_vals, A_vals, cx_vals)
+            image = preprocessing.place_image_on_grid(E_vals, A_vals, cx_vals)
 
             if crop_strength > 0.0:
                 print(f'cropping {i}, {j}...')
-                image = crop_image(image, crop_strength)
+                image = preprocessing.crop_image(image, crop_strength)
 
             images.append(image)
 
@@ -172,7 +87,7 @@ def get_targets(train_path, compressed=True):
         log10_gamma = float(np.log10(gamma_total + 1e-8))
 
         # duplicate targets to match duplicated (cropped) images
-        for i in range(IMG_DUP):
+        for i in range(preprocessing.IMG_DUP):
             tensors.append(torch.tensor([Er_unit, log10_gamma, num_levels], dtype=torch.float32))
 
     return torch.stack(tensors, dim=0)
@@ -195,6 +110,6 @@ class ResonanceDataset(Dataset):
         target = self.targets[idx]
 
         if self.gradients:
-            image = utils.sobel(image)
+            image = preprocessing.sobel(image)
 
         return image, target
