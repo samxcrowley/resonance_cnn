@@ -4,9 +4,9 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
-import utils
+import load_data
 from singleres_energylevel_cnn import SingleRes_EnergyLevel_CNN
-import data_loading
+import preprocessing
 import sys
 import os
 
@@ -118,7 +118,7 @@ def main():
 
     print(f'Images at {images_path}')
 
-    targets = data_loading.get_targets(training_path, compressed=False)
+    targets = load_data.get_targets(training_path, compressed=False)
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
@@ -134,10 +134,10 @@ def main():
     if cropping_strength > 0.0:
         print('Cropping images...')
         for i in range(len(images)):
-            images[i] = data_loading.crop_image(images[i], cropping_strength)
+            images[i] = preprocessing.crop_image(images[i], cropping_strength)
     print(f'Images cropped with strength {cropping_strength}')
 
-    dataset = data_loading.ResonanceDataset(images, targets, gradients=gradients)
+    dataset = load_data.ResonanceDataset(images, targets, gradients=gradients)
 
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
