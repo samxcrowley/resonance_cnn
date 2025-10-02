@@ -1,0 +1,8 @@
+y
+custom_training.gz
+custom_images_full.pt
+2000
+0.5
+100
+32
+32
