@@ -79,6 +79,8 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
                         gs.append(float(np.log10(gamma_total + 1e-8)))
 
                 # order by energy
+                es = torch.tensor(es)
+                gs = torch.tensor(gs)
                 order = torch.argsort(es)
                 e = es[order]
                 g = gs[order]
