@@ -57,8 +57,13 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
                 print(f'cropping {i}, {j}...')
 
                 image, cropped_E_axis, cropped_A_axis = preprocessing.crop_image(image, crop_strength)
+                
+                levels = data[i]['levels']
+                if len(levels) == 0:
+                    continue
+                else:
+                    levels = levels[0]
 
-                levels = data[i]['levels'][0]
                 es = []
                 gs = []
                 for _ in levels:
