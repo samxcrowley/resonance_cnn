@@ -35,11 +35,6 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
         A_vals = []
         cx_vals = []
 
-        # target data
-        levels = data[i]['levels'][0]
-        energy = levels['energy']
-        gamma_total = levels['Gamma_total']
-
         # normalise energy
         points = data[i]['observable_sets'][0]['points']
         df = pd.DataFrame(points)
@@ -79,7 +74,7 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
                 gs = []
                 for _ in levels:
                     energy = levels['energy']
-                    gamma_total = levels['gamma_total']
+                    gamma_total = levels['Gamma_total']
                     if cropped_E_axis.min() <= energy <= cropped_E_axis.max():
                         es.append(energy)
                         gs.append(gamma_total)
