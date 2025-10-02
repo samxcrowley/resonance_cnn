@@ -214,16 +214,14 @@ def main():
 if __name__ == "__main__":
 
     # prompt user for parameters
-    training_path = input("Training data path: ")
-    images_path = input("Input images path: ")
+    training_path = input("Training data path: ") or training_path
+    images_path = input("Input images path: ") or images_path
     subset_size = int(input("Subset size: "))
     cropping_strength = float(input("Cropping strength: "))
     num_epochs = int(input("Num. epochs: "))
     batch_size = int(input("Batch size: "))
     num_workers = int(input("Num. workers: "))
 
-    print()
-    print("------------------------------------")
-    print()
+    print("\n------------------------------------\n")
 
     main()
