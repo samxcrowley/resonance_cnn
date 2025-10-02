@@ -22,7 +22,8 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
 
     n = len(data)
     images = []
-    targets = []
+
+    E_axis, A_axis = preprocessing.global_grid()
     
     for i in range(n):
 
@@ -34,17 +35,6 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
         E_vals = []
         A_vals = []
         cx_vals = []
-
-        # normalise energy
-        points = data[i]['observable_sets'][0]['points']
-        df = pd.DataFrame(points)
-        energies_abs = sorted(df['cn_ex'].unique())
-        e_min, e_max = min(energies_abs), max(energies_abs)
-        Er_unit = (energy - e_min) / max(e_max - e_min, 1e-8)
-        Er_unit = float(np.clip(Er_unit, 0.0, 1.0))
-
-        # log total gamma
-        log_gamma_total = float(np.log10(gamma_total + 1e-8))
 
         # add all image data
         for p in points:
@@ -68,17 +58,27 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
 
                 image, cropped_E_axis, cropped_A_axis = preprocessing.crop_image(image, crop_strength)
 
-                # find which resonances are in the cropped image
                 levels = data[i]['levels'][0]
                 es = []
                 gs = []
                 for _ in levels:
+
                     energy = levels['energy']
                     gamma_total = levels['Gamma_total']
-                    if cropped_E_axis.min() <= energy <= cropped_E_axis.max():
-                        es.append(energy)
-                        gs.append(gamma_total)
 
+                    # only keep resonances within the cropped range
+                    if cropped_E_axis.min() <= energy <= cropped_E_axis.max():
+
+                        # normalise energy
+                        points = data[i]['observable_sets'][0]['points']
+                        Er_unit = (energy - E_axis.min()) / max(E_axis.max() - E_axis.min(), 1e-8)
+                        Er_unit = float(np.clip(Er_unit, 0.0, 1.0))
+                        es.append(energy)
+
+                        # append log gamma_total
+                        gs.append(float(np.log10(gamma_total + 1e-8)))
+
+                # order by energy
                 order = torch.argsort(es)
                 e = es[order]
                 g = gs[order]
