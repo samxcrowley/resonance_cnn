@@ -74,7 +74,7 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
                 image, cropped_E_axis, cropped_A_axis = preprocessing.crop_image(image, crop_strength)
 
                 # find which resonances are in the cropped image
-                levels = data[i]['levels']
+                levels = data[i]['levels'][0]
                 es = []
                 gs = []
                 for _ in levels:
