@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 from multires_numlevels_cnn import MultiRes_NumLevels_CNN
+from multires_numlevels_cnn import MultiRes_NumLevels_SmallCNN
 import preprocessing
 import load_data
 import sys
@@ -16,21 +17,21 @@ training_path = f'data/o16/o16_training_small.gz'
 images_path = f'data/images.pt'
 
 num_workers = 32
-subset_size = 500
+subset_size = 2000
 
-cropping_strength = 0.0
+cropping_strength = 0.9
 
 # training
-num_epochs = 100
+num_epochs = 150
 batch_size = 32
-lr = 1e-4
-weight_decay = 1e-4
+lr = 1e-2
+weight_decay = 0
 
 # model params.
 dropout_p = 0.0
 base = 80
 kernel_size = 3
-gradients = False
+gradients = True
 
 crit = torch.nn.CrossEntropyLoss()
 
@@ -39,15 +40,16 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
     net.train()
 
     running = {
-        'loss': 0.0, 'count': 0
+        'loss': 0.0, 'acc': 0, 'count': 0
     }
 
-    for batch_images, batch_targets in loader:
+    for batch_images, batch_target_params, batch_target_masks in loader:
 
         batch_images = batch_images.to(device=device, dtype=torch.float32)
-        batch_targets = batch_targets.to(device=device, dtype=torch.float32)
+        batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
+        batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
 
-        num_target = batch_targets[:, 2]
+        num_target = batch_target_masks.sum(dim=1).to(device=device, dtype=torch.long)
 
         num_pred = net(batch_images)
 
@@ -62,14 +64,17 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         optimizer.step()
 
         with torch.no_grad():
-            running['loss'] += loss.item() * batch_images.size(0)
-            running['count'] += batch_images.size(0)
+            batch_size = batch_images.size(0)
+            running['loss'] += loss.item() * batch_size
+            preds = torch.argmax(num_pred, dim=1)
+            running['acc'] += (preds == num_target).sum().item()
+            running['count'] += batch_size
 
     n = running['count']
     metrics = {
-        'loss': running['loss'] / n
+        'loss': running['loss'] / n,
+        'acc': running['acc'] / n
     }
-
     return metrics
     
 def eval_epoch(net, loader, device):
@@ -77,27 +82,32 @@ def eval_epoch(net, loader, device):
     net.eval()
     
     running = {
-        'loss': 0.0, 'count': 0
+        'loss': 0.0, 'acc': 0, 'count': 0
     }
 
     with torch.no_grad():
-        for batch_images, batch_targets in loader:
+        for batch_images, batch_target_params, batch_target_masks in loader:
 
             batch_images = batch_images.to(device=device, dtype=torch.float32)
-            batch_targets = batch_targets.to(device=device, dtype=torch.float32)
+            batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
+            batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
 
-            num_target = batch_targets[:, 2]
+            num_target = batch_target_masks.sum(dim=1).to(device=device, dtype=torch.long)
 
             num_pred = net(batch_images)
 
             loss = crit(num_pred, num_target)
 
-            running['loss'] += loss.item() * batch_images.size(0)
-            running['count'] += batch_images.size(0)
+            batch_size = batch_images.size(0)
+            running['loss'] += loss.item() * batch_size
+            preds = torch.argmax(num_pred, dim=1)
+            running['acc'] += (preds == num_target).sum().item()
+            running['count'] += batch_size
 
     n = running['count']
     metrics = {
-        'loss': running['loss'] / n
+        'loss': running['loss'] / n,
+        'acc': running['acc'] / n
     }
 
     return metrics
@@ -107,30 +117,21 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
-    images = torch.load(images_path)
-
-    print(f'Images at {images_path}')
-
-    targets = load_data.get_targets(training_path, compressed=False)
+    images, target_params, target_masks = load_data.load_images_and_targets('multi', cropping_strength)
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
         images = images[:subset_size]
-        targets = targets[:subset_size]
+        target_params = target_params[:subset_size]
+        target_masks = target_masks[:subset_size]
 
     print(f'Images shape: {images.shape}')
-    print(f'Targets shape: {targets.shape}')
-    if images.size(0) != targets.size(0):
+    print(f'Targets shape: {target_params.shape}, {target_masks.shape}')
+    if images.size(0) != target_params.size(0):
         print('\nNo. images does not match no. targets!! Exiting.\n')
         sys.exit(0)
-    
-    if cropping_strength > 0.0:
-        print('Cropping images...')
-        for i in range(len(images)):
-            images[i] = preprocessing.crop_image(images[i], cropping_strength)
-    print(f'Images cropped with strength {cropping_strength}')
 
-    dataset = load_data.ResonanceDataset(images, targets, gradients=gradients)
+    dataset = load_data.ResonanceDataset(images, target_params, target_masks, gradients=gradients)
 
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
@@ -155,17 +156,16 @@ def main():
     net = MultiRes_NumLevels_CNN(in_ch=2,
                                     base=base,
                                     dropout_p=dropout_p,
-                                    kernel_size=kernel_size).to(device)
+                                    kernel_size=kernel_size,
+                                    max_levels=load_data.MAX_RESONANCES).to(device)
     print('Loaded multi. resonance num levels CNN')
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
-
     results = {
         "epoch": [],
-        "train_loss": [], "train_loss_E": [], "train_mae_E": [],
-        "val_loss": [], "val_loss_E": [], "val_mae_E": []
+        "train_loss": [], "train_acc": [],
+        "val_loss": [], "val_acc": []
     }
 
     for epoch in range(1, num_epochs + 1):
@@ -173,17 +173,17 @@ def main():
         train_m = train_epoch(net, train_loader, optimizer, device, grad_clip=1.0)
         val_m = eval_epoch(net, val_loader, device)
 
-        scheduler.step(val_m['loss'])
-
         results["epoch"].append(epoch)
         results["train_loss"].append(train_m["loss"])
+        results["train_acc"].append(train_m["acc"])
         results["val_loss"].append(val_m["loss"])
+        results["val_acc"].append(val_m["acc"])
 
         if epoch % 5 == 0:
             print(
                 f"Epoch {epoch:02d} | "
-                f"train loss {train_m['loss']:.4f}"
-                f" | val loss {val_m['loss']:.4f}"
+                f"Train loss {train_m['loss']:.4f}, acc {train_m['acc']:.3f} | "
+                f"Val loss {val_m['loss']:.4f}, acc {val_m['acc']:.3f}"
             )
 
     # save results data
@@ -200,13 +200,13 @@ def main():
 if __name__ == "__main__":
 
     # prompt user for parameters
-    training_path = input("Training data path: ")
-    images_path = input("Input images path: ")
-    subset_size = int(input("Subset size: "))
-    cropping_strength = float(input("Cropping strength: "))
-    num_epochs = int(input("Num. epochs: "))
-    batch_size = int(input("Batch size: "))
-    num_workers = int(input("Num. workers: "))
+    # training_path = input("Training data path: ")
+    # images_path = input("Input images path: ")
+    # subset_size = int(input("Subset size: "))
+    # cropping_strength = float(input("Cropping strength: "))
+    # num_epochs = int(input("Num. epochs: "))
+    # batch_size = int(input("Batch size: "))
+    # num_workers = int(input("Num. workers: "))
 
     print()
     print("------------------------------------")

@@ -16,7 +16,7 @@ training_path = f'data/o16/o16_training_small.gz'
 images_path = f'data/images.pt'
 
 num_workers = 32
-subset_size = 500
+subset_size = 1000
 
 cropping_strength = 0.0
 
@@ -41,14 +41,16 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         'mae_E': 0.0, 'count': 0
     }
 
-    for batch_images, batch_targets in loader:
+    for batch_images, batch_target_params, batch_target_masks in loader:
 
         batch_images = batch_images.to(device=device, dtype=torch.float32)
-        batch_targets = batch_targets.to(device=device, dtype=torch.float32)
+        batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
+        batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
 
-        E_target = batch_targets[:, 0]
+        E_target = batch_target_params[:, 0, 0]
 
         E_pred = net(batch_images)
+
         loss_E = F.mse_loss(E_pred, E_target)
         loss = loss_E
 
@@ -62,7 +64,7 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         with torch.no_grad():
             running['loss'] += loss.item() * batch_images.size(0)
             running['loss_E'] += loss_E.item() * batch_images.size(0)
-            running['mae_E'] += torch.mean(torch.abs(E_pred - E_target)).item() * batch_images.size(0)
+            running['mae_E'] += torch.abs(E_pred - E_target).sum().item()
             running['count'] += batch_images.size(0)
 
     n = running['count']
@@ -83,12 +85,14 @@ def eval_epoch(net, loader, device):
     }
 
     with torch.no_grad():
-        for batch_images, batch_targets in loader:
+
+        for batch_images, batch_target_params, batch_target_masks in loader:
 
             batch_images = batch_images.to(device=device, dtype=torch.float32)
-            batch_targets = batch_targets.to(device=device, dtype=torch.float32)
+            batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
+            batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
 
-            E_target = batch_targets[:, 0]
+            E_target = batch_target_params[:, 0, 0]
 
             E_pred = net(batch_images)
 
@@ -97,7 +101,7 @@ def eval_epoch(net, loader, device):
 
             running['loss'] += loss.item() * batch_images.size(0)
             running['loss_E'] += loss_E.item() * batch_images.size(0)
-            running['mae_E'] += torch.mean(torch.abs(E_pred - E_target)).item() * batch_images.size(0)
+            running['mae_E'] += torch.abs(E_pred - E_target).sum().item()
             running['count'] += batch_images.size(0)
 
     n = running['count']
@@ -114,30 +118,27 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
-    images = torch.load(images_path)
+    images = torch.load('data/images/singleres_images_crop0.0.pt')
+    target_params = torch.load('data/targets/singleres_targetparams_crop0.0.pt')
+    target_masks = torch.load('data/targets/singleres_targetmasks_crop0.0.pt')
 
-    print(f'Images at {images_path}')
-
-    targets = load_data.get_targets(training_path, compressed=False)
+    images = images[::10]
+    target_params = target_params[::10]
+    target_masks = target_masks[::10]
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
         images = images[:subset_size]
-        targets = targets[:subset_size]
+        target_params = target_params[:subset_size]
+        target_masks = target_masks[:subset_size]
 
     print(f'Images shape: {images.shape}')
-    print(f'Targets shape: {targets.shape}')
-    if images.size(0) != targets.size(0):
+    print(f'Targets shape: {target_params.shape}, {target_masks.shape}')
+    if images.size(0) != target_params.size(0):
         print('\nNo. images does not match no. targets!! Exiting.\n')
         sys.exit(0)
-    
-    if cropping_strength > 0.0:
-        print('Cropping images...')
-        for i in range(len(images)):
-            images[i] = preprocessing.crop_image(images[i], cropping_strength)
-    print(f'Images cropped with strength {cropping_strength}')
 
-    dataset = load_data.ResonanceDataset(images, targets, gradients=gradients)
+    dataset = load_data.ResonanceDataset(images, target_params, target_masks, gradients=gradients)
 
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
@@ -156,7 +157,7 @@ def main():
     
     val_loader = DataLoader(val_dataset,
                             batch_size=batch_size,
-                            shuffle=False,
+                            shuffle=True,
                             num_workers=num_workers)
 
     net = SingleRes_EnergyLevel_CNN(in_ch=2,
@@ -167,7 +168,7 @@ def main():
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
 
     results = {
         "epoch": [],
@@ -177,7 +178,7 @@ def main():
 
     for epoch in range(1, num_epochs + 1):
 
-        train_m = train_epoch(net, train_loader, optimizer, device, grad_clip=1.0)
+        train_m = train_epoch(net, train_loader, optimizer, device)
         val_m = eval_epoch(net, val_loader, device)
 
         scheduler.step(val_m['loss'])
@@ -214,13 +215,13 @@ def main():
 if __name__ == "__main__":
 
     # prompt user for parameters
-    training_path = input("Training data path: ") or training_path
-    images_path = input("Input images path: ") or images_path
-    subset_size = int(input("Subset size: "))
-    cropping_strength = float(input("Cropping strength: "))
-    num_epochs = int(input("Num. epochs: "))
-    batch_size = int(input("Batch size: "))
-    num_workers = int(input("Num. workers: "))
+    # training_path = input("Training data path: ") or training_path
+    # images_path = input("Input images path: ") or images_path
+    # subset_size = int(input("Subset size: "))
+    # cropping_strength = float(input("Cropping strength: "))
+    # num_epochs = int(input("Num. epochs: "))
+    # batch_size = int(input("Batch size: "))
+    # num_workers = int(input("Num. workers: "))
 
     print("\n------------------------------------\n")
 

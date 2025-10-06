@@ -11,16 +11,16 @@ class SingleRes_EnergyLevel_CNN(nn.Module):
         padmode = 'reflect'
 
         self.conv1 = nn.Conv2d(in_ch, base, kernel_size, padding='same', padding_mode=padmode)
-        self.bn1 = nn.BatchNorm2d(base)
+        self.bn1 = nn.GroupNorm(8, base)
 
         self.conv2 = nn.Conv2d(base, base * 2, kernel_size, padding='same', padding_mode=padmode)
-        self.bn2 = nn.BatchNorm2d(base * 2)
+        self.bn2 = nn.GroupNorm(8, base * 2)
 
         self.conv3 = nn.Conv2d(base * 2, base * 4, kernel_size, padding='same', padding_mode=padmode)
-        self.bn3 = nn.BatchNorm2d(base * 4)
+        self.bn3 = nn.GroupNorm(8, base * 4)
 
         self.conv4 = nn.Conv2d(base * 4, base * 8, kernel_size, padding='same', padding_mode=padmode)
-        self.bn4 = nn.BatchNorm2d(base * 8)
+        self.bn4 = nn.GroupNorm(8, base * 8)
 
         # TODO: should A be downsampled too? if res. becomes high enough?
         self.pool = nn.MaxPool2d(kernel_size=(2,1), stride=(2,1)) # downsample E only
