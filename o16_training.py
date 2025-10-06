@@ -45,13 +45,14 @@ cn_ex_max = np.max(rm._observable_sets[0].get_coords("cn_ex"));
 
 # Remove all resonances
 training_sets=[];
-for nset in tqdm.tqdm(range(0,1000)) :
+for nset in tqdm.tqdm(range(0,1000)):
     
     levels=[];
     level_set_info=[];
 
     # num_levels in [5, 20]
     num_levels = np.random.randint(15) + 5
+    # num_levels = 1
 
     for n in range(0, num_levels) :
     
