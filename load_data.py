@@ -6,7 +6,7 @@ import pandas as pd
 import preprocessing
 from torch.utils.data import Dataset
 
-MAX_RESONANCES = 5
+MAX_RESONANCES = 20
 
 # returns images, target_params (energies and gammas), target_mask, target_count
 def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=True, subset=-1):
@@ -69,9 +69,9 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
 
             es = []
             gs = []
-            for i in range(len(levels)):
+            for lev in range(len(levels)):
 
-                level = levels[i]
+                level = levels[lev]
 
                 energy = level['energy']
                 gamma_total = level['Gamma_total']
@@ -80,7 +80,6 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
                 if cropped_E_axis.min() <= energy <= cropped_E_axis.max():
 
                     # normalise energy
-                    points = data[i]['observable_sets'][0]['points']
                     Er_unit = (energy - E_axis.min()) / max(E_axis.max() - E_axis.min(), 1e-8)
                     Er_unit = float(np.clip(Er_unit, 0.0, 1.0))
                     es.append(Er_unit)
@@ -111,13 +110,33 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
             torch.stack(target_params, dim=0), \
             torch.stack(target_masks, dim=0)
 
+def save_images_and_targets(nr, strength):
+
+    train_path = f'data/o16/{nr}res_training.gz'
+
+    images, target_params, target_masks = \
+        get_images_and_targets(train_path, crop_strength=strength)
+
+    torch.save(images, f'data/images/{nr}res_images_crop{strength}.pt')
+    torch.save(target_params, f'data/targets/{nr}res_targetparams_crop{strength}.pt')
+    torch.save(target_masks, f'data/targets/{nr}res_targetmasks_crop{strength}.pt')
+
+def load_images_and_targets(nr, strength):
+
+    images = torch.load(f'data/images/{nr}res_images_crop{strength}.pt')
+    target_params = torch.load(f'data/targets/{nr}res_targetparams_crop{strength}.pt')
+    target_masks = torch.load(f'data/targets/{nr}res_targetmasks_crop{strength}.pt')
+
+    return images, target_params, target_masks
+
 # input dataset for ResonanceCNN
 class ResonanceDataset(Dataset):
 
-    def __init__(self, images, targets, gradients):
+    def __init__(self, images, target_params, target_masks, gradients):
 
         self.images = images
-        self.targets = targets
+        self.target_params = target_params
+        self.target_masks = target_masks
         self.gradients = gradients
 
     def __len__(self):
@@ -126,9 +145,10 @@ class ResonanceDataset(Dataset):
     def __getitem__(self, idx):
         
         image = self.images[idx]
-        target = self.targets[idx]
+        target_params = self.target_params[idx]
+        target_mask = self.target_masks[idx]
 
         if self.gradients:
             image = preprocessing.sobel(image)
 
-        return image, target
+        return image, target_params, target_mask
