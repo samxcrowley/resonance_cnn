@@ -3,6 +3,7 @@ import gzip
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 
 global_E_min = 8.0
 global_E_max = 20.0
@@ -109,25 +110,25 @@ def random_range(minimum, maximum, step, strength):
 
     return minimum_, maximum_
 
-# def sobel(image):
+def sobel(image):
     
-#     device = image.device
-#     dtype = image.dtype
+    device = image.device
+    dtype = image.dtype
 
-#     x = image[0].unsqueeze(0).unsqueeze(0)
+    x = image[0].unsqueeze(0).unsqueeze(0)
 
-#     kx = torch.tensor([[-1, 0, 1],
-#                        [-2, 0, 2],
-#                        [-1, 0, 1]], dtype=dtype, device=device).view(1, 1, 3, 3)
-#     ky = torch.tensor([[-1, -2, -1],
-#                        [ 0,  0,  0],
-#                        [ 1,  2,  1]], dtype=dtype, device=device).view(1, 1, 3, 3)
+    kx = torch.tensor([[-1, 0, 1],
+                       [-2, 0, 2],
+                       [-1, 0, 1]], dtype=dtype, device=device).view(1, 1, 3, 3)
+    ky = torch.tensor([[-1, -2, -1],
+                       [ 0,  0,  0],
+                       [ 1,  2,  1]], dtype=dtype, device=device).view(1, 1, 3, 3)
 
-#     gx = F.conv2d(x, kx, padding=1)
-#     gy = F.conv2d(x, ky, padding=1)
+    gx = F.conv2d(x, kx, padding=1)
+    gy = F.conv2d(x, ky, padding=1)
 
-#     grad = torch.sqrt(gx * gx + gy * gy + 1e-12)
-#     out = image.clone()
-#     out[0] = grad[0]
+    grad = torch.sqrt(gx * gx + gy * gy + 1e-12)
+    out = image.clone()
+    out[0] = grad[0]
 
-#     return out
+    return out
