@@ -31,7 +31,7 @@ class MultiRes_NumLevels_CNN(nn.Module):
         self.dropout = nn.Dropout(dropout_p)
 
         # num_levels head
-        self.head_num_levels = nn.Linear(128, max_levels)
+        self.head_num_levels = nn.Linear(128, 1)
 
     def forward(self, x):
 
@@ -71,9 +71,9 @@ class MultiRes_NumLevels_CNN(nn.Module):
         x = F.relu(self.fc1(feat))
         x = self.dropout(F.relu(self.fc2(x)))
         
-        logits = self.head_num_levels(x)
+        pred = self.head_num_levels(x).squeeze(-1)
 
-        return logits
+        return pred
 
 class MultiRes_NumLevels_SmallCNN(nn.Module):
 

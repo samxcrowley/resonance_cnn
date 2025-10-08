@@ -19,28 +19,32 @@ images_path = f'data/images.pt'
 num_workers = 32
 subset_size = 2000
 
-cropping_strength = 0.9
+cropping_strength = 0.1
 
 # training
 num_epochs = 150
 batch_size = 32
-lr = 1e-2
-weight_decay = 0
+lr = 1e-3
+weight_decay = 1e-4
 
 # model params.
-dropout_p = 0.0
-base = 80
+dropout_p = 0.3
+base = 40
 kernel_size = 3
 gradients = True
 
-crit = torch.nn.CrossEntropyLoss()
+crit = torch.nn.SmoothL1Loss()
 
 def train_epoch(net, loader, optimizer, device, grad_clip=None):
 
     net.train()
 
     running = {
-        'loss': 0.0, 'acc': 0, 'count': 0
+        'loss': 0.0, 
+        'mae': 0.0,
+        'acc_exact': 0,
+        'acc_within_1': 0,
+        'count': 0
     }
 
     for batch_images, batch_target_params, batch_target_masks in loader:
@@ -49,7 +53,7 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
         batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
 
-        num_target = batch_target_masks.sum(dim=1).to(device=device, dtype=torch.long)
+        num_target = batch_target_masks.sum(dim=1).to(device=device, dtype=torch.float32)
 
         num_pred = net(batch_images)
 
@@ -66,15 +70,24 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         with torch.no_grad():
             batch_size = batch_images.size(0)
             running['loss'] += loss.item() * batch_size
-            preds = torch.argmax(num_pred, dim=1)
-            running['acc'] += (preds == num_target).sum().item()
+            
+            # round predictions for discrete evaluation
+            preds_rounded = torch.round(num_pred)
+            
+            running['mae'] += torch.abs(num_pred - num_target).sum().item()
+            running['acc_exact'] += (preds_rounded == num_target).sum().item()
+            running['acc_within_1'] += (torch.abs(preds_rounded - num_target) <= 1).sum().item()
             running['count'] += batch_size
 
     n = running['count']
+
     metrics = {
         'loss': running['loss'] / n,
-        'acc': running['acc'] / n
+        'mae': running['mae'] / n,
+        'acc_exact': running['acc_exact'] / n,
+        'acc_within_1': running['acc_within_1'] / n
     }
+
     return metrics
     
 def eval_epoch(net, loader, device):
@@ -82,7 +95,11 @@ def eval_epoch(net, loader, device):
     net.eval()
     
     running = {
-        'loss': 0.0, 'acc': 0, 'count': 0
+        'loss': 0.0, 
+        'mae': 0.0,
+        'acc_exact': 0,
+        'acc_within_1': 0,
+        'count': 0
     }
 
     with torch.no_grad():
@@ -92,7 +109,7 @@ def eval_epoch(net, loader, device):
             batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
             batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
 
-            num_target = batch_target_masks.sum(dim=1).to(device=device, dtype=torch.long)
+            num_target = batch_target_masks.sum(dim=1).to(device=device, dtype=torch.float32)
 
             num_pred = net(batch_images)
 
@@ -100,14 +117,22 @@ def eval_epoch(net, loader, device):
 
             batch_size = batch_images.size(0)
             running['loss'] += loss.item() * batch_size
-            preds = torch.argmax(num_pred, dim=1)
-            running['acc'] += (preds == num_target).sum().item()
+            
+            # round predictions for discrete evaluation
+            preds_rounded = torch.round(num_pred)
+            
+            running['mae'] += torch.abs(num_pred - num_target).sum().item()
+            running['acc_exact'] += (preds_rounded == num_target).sum().item()
+            running['acc_within_1'] += (torch.abs(preds_rounded - num_target) <= 1).sum().item()
             running['count'] += batch_size
 
     n = running['count']
+
     metrics = {
         'loss': running['loss'] / n,
-        'acc': running['acc'] / n
+        'mae': running['mae'] / n,
+        'acc_exact': running['acc_exact'] / n,
+        'acc_within_1': running['acc_within_1'] / n
     }
 
     return metrics
@@ -162,40 +187,44 @@ def main():
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=10
+    )
+
     results = {
         "epoch": [],
-        "train_loss": [], "train_acc": [],
-        "val_loss": [], "val_acc": []
+        "train_loss": [], "train_mae": [], "train_acc_exact": [], "train_acc_within_1": [],
+        "val_loss": [], "val_mae": [], "val_acc_exact": [], "val_acc_within_1": []
     }
+
+    print("\n------------------------------------\n")
 
     for epoch in range(1, num_epochs + 1):
 
         train_m = train_epoch(net, train_loader, optimizer, device, grad_clip=1.0)
         val_m = eval_epoch(net, val_loader, device)
 
+        scheduler.step(val_m['mae'])
+
         results["epoch"].append(epoch)
         results["train_loss"].append(train_m["loss"])
-        results["train_acc"].append(train_m["acc"])
+        results["train_mae"].append(train_m["mae"])
+        results["train_acc_exact"].append(train_m["acc_exact"])
+        results["train_acc_within_1"].append(train_m["acc_within_1"])
+        
         results["val_loss"].append(val_m["loss"])
-        results["val_acc"].append(val_m["acc"])
+        results["val_mae"].append(val_m["mae"])
+        results["val_acc_exact"].append(val_m["acc_exact"])
+        results["val_acc_within_1"].append(val_m["acc_within_1"])
 
         if epoch % 5 == 0:
             print(
-                f"Epoch {epoch:02d} | "
-                f"Train loss {train_m['loss']:.4f}, acc {train_m['acc']:.3f} | "
-                f"Val loss {val_m['loss']:.4f}, acc {val_m['acc']:.3f}"
+                f"Epoch {epoch:02d} |"
+                f"\n\tTrain loss {train_m['loss']:.4f}, MAE {train_m['mae']:.3f}, "
+                f"acc {train_m['acc_exact']:.3f}, acc ±1 {train_m['acc_within_1']:.3f}"
+                f"\n\tVal loss {val_m['loss']:.4f}, MAE {val_m['mae']:.3f}, "
+                f"acc {val_m['acc_exact']:.3f}, acc ±1 {val_m['acc_within_1']:.3f}\n"
             )
-
-    # save results data
-    # results_filename = \
-        # f'results/{cropping_strength}crop_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
-
-    # os.makedirs(os.path.dirname(results_filename), exist_ok=True)
-
-    # df = pd.DataFrame(results)
-    # df.to_csv(results_filename, index=False)
-
-    # print(f'Results saved to {results_filename}')
 
 if __name__ == "__main__":
 
@@ -208,8 +237,6 @@ if __name__ == "__main__":
     # batch_size = int(input("Batch size: "))
     # num_workers = int(input("Num. workers: "))
 
-    print()
-    print("------------------------------------")
-    print()
+    print("\n------------------------------------\n")
 
     main()
