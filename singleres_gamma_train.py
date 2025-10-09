@@ -5,40 +5,36 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 import load_data
-from singleres_energylevel_cnn import SingleRes_EnergyLevel_CNN
+from singleres_gamma_cnn import SingleRes_Gamma_CNN
 import preprocessing
 import sys
 import os
 
 SEED = 22
 
-training_path = f'data/o16/o16_training_small.gz'
-images_path = f'data/images.pt'
-
 num_workers = 32
-subset_size = 1000
+subset_size = 2000
 
 cropping_strength = 0.0
 
 # training
 num_epochs = 100
 batch_size = 32
-lr = 1e-4
+lr = 1e-3
 weight_decay = 1e-4
 
 # model params.
 dropout_p = 0.0
 base = 80
 kernel_size = 3
-gradients = False
+gradients = True
 
 def train_epoch(net, loader, optimizer, device, grad_clip=None):
 
     net.train()
 
     running = {
-        'loss': 0.0, 'loss_E': 0.0,
-        'mae_E': 0.0, 'count': 0
+        'loss_G': 0.0, 'mae_G': 0.0, 'count': 0
     }
 
     for batch_images, batch_target_params, batch_target_masks in loader:
@@ -47,32 +43,29 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
         batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
 
-        E_target = batch_target_params[:, 0, 0]
+        G_target = batch_target_params[:, 0, 1]
 
-        E_pred = net(batch_images)
+        G_pred = net(batch_images)
 
-        loss_E = F.mse_loss(E_pred, E_target)
-        loss = loss_E
+        loss_G = F.mse_loss(G_pred, G_target)
 
         optimizer.zero_grad(set_to_none=True)
 
-        loss.backward()
+        loss_G.backward()
         if grad_clip is not None:
             torch.nn.utils.clip_grad_norm_(net.parameters(), grad_clip)
         optimizer.step()
 
         with torch.no_grad():
-            running['loss'] += loss.item() * batch_images.size(0)
-            running['loss_E'] += loss_E.item() * batch_images.size(0)
-            running['mae_E'] += torch.abs(E_pred - E_target).sum().item()
+            running['loss_G'] += loss_G.item() * batch_images.size(0)
+            running['mae_G'] += torch.abs(G_pred - G_target).sum().item()
             running['count'] += batch_images.size(0)
 
     n = running['count']
 
     return {
-        'loss': running['loss'] / n,
-        'loss_E': running['loss_E'] / n,
-        'mae_E': running['mae_E'] / n
+        'loss_G': running['loss_G'] / n,
+        'mae_G': running['mae_G'] / n
     }
     
 def eval_epoch(net, loader, device):
@@ -80,8 +73,7 @@ def eval_epoch(net, loader, device):
     net.eval()
     
     running = {
-        'loss': 0.0, 'loss_E': 0.0,
-        'mae_E': 0.0, 'count': 0
+        'loss_G': 0.0, 'mae_G': 0.0, 'count': 0
     }
 
     with torch.no_grad():
@@ -96,19 +88,16 @@ def eval_epoch(net, loader, device):
 
             E_pred = net(batch_images)
 
-            loss_E = F.mse_loss(E_pred, E_target)
-            loss = loss_E
+            loss_G = F.mse_loss(E_pred, E_target)
 
-            running['loss'] += loss.item() * batch_images.size(0)
-            running['loss_E'] += loss_E.item() * batch_images.size(0)
-            running['mae_E'] += torch.abs(E_pred - E_target).sum().item()
+            running['loss_G'] += loss_G.item() * batch_images.size(0)
+            running['mae_G'] += torch.abs(E_pred - E_target).sum().item()
             running['count'] += batch_images.size(0)
 
     n = running['count']
     metrics = {
-        'loss': running['loss']   / n,
-        'loss_E': running['loss_E'] / n,
-        'mae_E': running['mae_E']  / n
+        'loss_G': running['loss_G'] / n,
+        'mae_G': running['mae_G']  / n
     }
 
     return metrics
@@ -118,9 +107,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
-    images = torch.load('data/images/singleres_images_crop0.0.pt')
-    target_params = torch.load('data/targets/singleres_targetparams_crop0.0.pt')
-    target_masks = torch.load('data/targets/singleres_targetmasks_crop0.0.pt')
+    images, target_params, target_masks = load_data.load_images_and_targets('single', cropping_strength)
 
     images = images[::10]
     target_params = target_params[::10]
@@ -160,11 +147,11 @@ def main():
                             shuffle=True,
                             num_workers=num_workers)
 
-    net = SingleRes_EnergyLevel_CNN(in_ch=2,
+    net = SingleRes_Gamma_CNN(in_ch=2,
                                     base=base,
                                     dropout_p=dropout_p,
                                     kernel_size=kernel_size).to(device)
-    print('Loaded single resonance energy level CNN')
+    print('Loaded single resonance gamma CNN')
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -172,8 +159,8 @@ def main():
 
     results = {
         "epoch": [],
-        "train_loss": [], "train_loss_E": [], "train_mae_E": [],
-        "val_loss": [], "val_loss_E": [], "val_mae_E": []
+        "train_loss_G": [], "train_mae_G": [],
+        "val_loss_G": [], "val_mae_G": []
     }
 
     for epoch in range(1, num_epochs + 1):
@@ -181,36 +168,34 @@ def main():
         train_m = train_epoch(net, train_loader, optimizer, device)
         val_m = eval_epoch(net, val_loader, device)
 
-        scheduler.step(val_m['loss'])
+        scheduler.step(val_m['loss_G'])
 
         results["epoch"].append(epoch)
-        results["train_loss"].append(train_m["loss"])
-        results["train_loss_E"].append(train_m["loss_E"])
-        results["train_mae_E"].append(train_m["mae_E"])
+        results["train_loss_G"].append(train_m["loss_G"])
+        results["train_mae_G"].append(train_m["mae_G"])
 
-        results["val_loss"].append(val_m["loss"])
-        results["val_loss_E"].append(val_m["loss_E"])
-        results["val_mae_E"].append(val_m["mae_E"])
+        results["val_loss_G"].append(val_m["loss_G"])
+        results["val_mae_G"].append(val_m["mae_G"])
 
         if epoch % 5 == 0:
             print(
                 f"Epoch {epoch:02d} | "
-                f"train loss {train_m['loss']:.4f}"
-                f" | val loss {val_m['loss']:.4f}"
-                f" | train MAE {train_m['mae_E']:.4f}"
-                f" | val MAE {val_m['mae_E']:.4f}"
+                f"train loss {train_m['loss_G']:.4f}"
+                f" | val loss {val_m['loss_G']:.4f}"
+                f" | train MAE {train_m['mae_G']:.4f}"
+                f" | val MAE {val_m['mae_G']:.4f}"
             )
 
-    # save results data
-    results_filename = \
-        f'results/{cropping_strength}crop_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
+    # # save results data
+    # results_filename = \
+    #     f'results/{cropping_strength}crop_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
 
-    os.makedirs(os.path.dirname(results_filename), exist_ok=True)
+    # os.makedirs(os.path.dirname(results_filename), exist_ok=True)
 
-    df = pd.DataFrame(results)
-    df.to_csv(results_filename, index=False)
+    # df = pd.DataFrame(results)
+    # df.to_csv(results_filename, index=False)
 
-    print(f'Results saved to {results_filename}')
+    # print(f'Results saved to {results_filename}')
 
 if __name__ == "__main__":
 
