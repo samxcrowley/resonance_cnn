@@ -124,6 +124,7 @@ def main():
     if images.size(0) != target_params.size(0):
         print('\nNo. images does not match no. targets!! Exiting.\n')
         sys.exit(0)
+    print(f'Cropping strength: {cropping_strength}')
 
     dataset = load_data.ResonanceDataset(images, target_params, target_masks, gradients=gradients)
 
@@ -152,6 +153,7 @@ def main():
                                     dropout_p=dropout_p,
                                     kernel_size=kernel_size).to(device)
     print('Loaded single resonance energy level CNN')
+    print("\n------------------------------------\n")
 
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -162,6 +164,11 @@ def main():
         "train_loss_E": [], "train_mae_E": [],
         "val_loss_E": [], "val_mae_E": []
     }
+
+    # track best model
+    best_val_loss = float('inf')
+    best_epoch = 0
+    best_model_state = None
 
     for epoch in range(1, num_epochs + 1):
 
@@ -177,6 +184,12 @@ def main():
         results["val_loss_E"].append(val_m["loss_E"])
         results["val_mae_E"].append(val_m["mae_E"])
 
+        # track best model
+        if val_m['loss_E'] < best_val_loss:
+            best_val_loss = val_m['loss_E']
+            best_epoch = epoch
+            best_model_state = {k: v.cpu().clone() for k, v in net.state_dict().items()}
+
         if epoch % 5 == 0:
             print(
                 f"Epoch {epoch:02d} | "
@@ -186,28 +199,20 @@ def main():
                 f" | val MAE {val_m['mae_E']:.4f}"
             )
 
+    # save best model
+    model_filename = \
+        f'results/singleres/energy/{cropping_strength}crop_model.pt'
+    os.makedirs(os.path.dirname(model_filename), exist_ok=True)
+    torch.save(best_model_state, model_filename)
+    print(f'Model saved to {model_filename}')
+
     # save results data
-    # results_filename = \
-    #     f'results/{cropping_strength}crop_{subset_size}subset_{num_epochs}epochs_{batch_size}batch.csv'
-
-    # os.makedirs(os.path.dirname(results_filename), exist_ok=True)
-
-    # df = pd.DataFrame(results)
-    # df.to_csv(results_filename, index=False)
-
-    # print(f'Results saved to {results_filename}')
+    results_filename = \
+        f'results/singleres/energy/{cropping_strength}crop_results.csv'
+    os.makedirs(os.path.dirname(results_filename), exist_ok=True)
+    df = pd.DataFrame(results)
+    df.to_csv(results_filename, index=False)
+    print(f'Results saved to {results_filename}')
 
 if __name__ == "__main__":
-
-    # prompt user for parameters
-    # training_path = input("Training data path: ") or training_path
-    # images_path = input("Input images path: ") or images_path
-    # subset_size = int(input("Subset size: "))
-    # cropping_strength = float(input("Cropping strength: "))
-    # num_epochs = int(input("Num. epochs: "))
-    # batch_size = int(input("Batch size: "))
-    # num_workers = int(input("Num. workers: "))
-
-    print("\n------------------------------------\n")
-
     main()

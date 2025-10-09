@@ -13,16 +13,13 @@ import os
 
 SEED = 22
 
-training_path = f'data/o16/o16_training_small.gz'
-images_path = f'data/images.pt'
-
 num_workers = 32
-subset_size = 2000
+subset_size = 5000
 
-cropping_strength = 0.1
+cropping_strength = 0.25
 
 # training
-num_epochs = 150
+num_epochs = 100
 batch_size = 32
 lr = 1e-3
 weight_decay = 1e-4
@@ -68,6 +65,7 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         optimizer.step()
 
         with torch.no_grad():
+
             batch_size = batch_images.size(0)
             running['loss'] += loss.item() * batch_size
             
@@ -103,6 +101,7 @@ def eval_epoch(net, loader, device):
     }
 
     with torch.no_grad():
+
         for batch_images, batch_target_params, batch_target_masks in loader:
 
             batch_images = batch_images.to(device=device, dtype=torch.float32)
@@ -155,6 +154,7 @@ def main():
     if images.size(0) != target_params.size(0):
         print('\nNo. images does not match no. targets!! Exiting.\n')
         sys.exit(0)
+    print(f'Cropping strength: {cropping_strength}')
 
     dataset = load_data.ResonanceDataset(images, target_params, target_masks, gradients=gradients)
 
@@ -199,6 +199,11 @@ def main():
 
     print("\n------------------------------------\n")
 
+    # track best model
+    best_val_acc_within = float('inf')
+    best_epoch = 0
+    best_model_state = None
+
     for epoch in range(1, num_epochs + 1):
 
         train_m = train_epoch(net, train_loader, optimizer, device, grad_clip=1.0)
@@ -217,6 +222,12 @@ def main():
         results["val_acc_exact"].append(val_m["acc_exact"])
         results["val_acc_within_1"].append(val_m["acc_within_1"])
 
+        # track best model
+        if val_m['acc_within_1'] < best_val_acc_within:
+            best_val_acc_within = val_m['acc_within_1']
+            best_epoch = epoch
+            best_model_state = {k: v.cpu().clone() for k, v in net.state_dict().items()}
+
         if epoch % 5 == 0:
             print(
                 f"Epoch {epoch:02d} |"
@@ -226,17 +237,20 @@ def main():
                 f"acc {val_m['acc_exact']:.3f}, acc ±1 {val_m['acc_within_1']:.3f}\n"
             )
 
+    # save best model
+    model_filename = \
+        f'results/multires/{cropping_strength}crop_model.pt'
+    os.makedirs(os.path.dirname(model_filename), exist_ok=True)
+    torch.save(best_model_state, model_filename)
+    print(f'Model saved to {model_filename}')
+
+    # save results data
+    results_filename = \
+        f'results/multires/{cropping_strength}crop_results.csv'
+    os.makedirs(os.path.dirname(results_filename), exist_ok=True)
+    df = pd.DataFrame(results)
+    df.to_csv(results_filename, index=False)
+    print(f'Results saved to {results_filename}')
+
 if __name__ == "__main__":
-
-    # prompt user for parameters
-    # training_path = input("Training data path: ")
-    # images_path = input("Input images path: ")
-    # subset_size = int(input("Subset size: "))
-    # cropping_strength = float(input("Cropping strength: "))
-    # num_epochs = int(input("Num. epochs: "))
-    # batch_size = int(input("Batch size: "))
-    # num_workers = int(input("Num. workers: "))
-
-    print("\n------------------------------------\n")
-
     main()
