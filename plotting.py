@@ -28,27 +28,28 @@ def plot_image(image, name):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     plt.savefig(filename, dpi=150)
 
-def plot_results(results_name):
+def plot_results(subdir, cropping_strength):
 
-    df = pd.read_csv(f'results/{results_name}.csv')
+    df = pd.read_csv(f'results/{subdir}/{cropping_strength}crop_results.csv')
 
     plt.figure()
-    plt.plot(df["epoch"], df["train_loss"], label="train loss")
-    plt.plot(df["epoch"], df["val_loss"], label="val loss")
-    plt.plot(df["epoch"], df["train_mae_E"], label="MAE")
+    plt.plot(df["epoch"], df["train_loss_E"], label="train loss")
+    plt.plot(df["epoch"], df["val_loss_E"], label="val loss")
+    # plt.plot(df["epoch"], df["train_mae_E"], label="MAE")
     plt.xlabel("epoch")
     plt.ylabel("loss")
     plt.title("Total loss")
     plt.legend()
     plt.tight_layout()
 
-    filename = f'plots/results/{results_name}.png'
+    filename = f'plots/results/{subdir}/{cropping_strength}crop_results.png'
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     plt.savefig(filename, dpi=150)
 
-def plot_losses():
+def plot_losses(subdir):
 
-    s = [0.0, 0.5, 0.75, 0.9]
+    # s = [0.0, 0.5, 0.75, 0.9]
+    s = [0.0, 0.25]
     files = []
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
@@ -56,7 +57,7 @@ def plot_losses():
 
     for _s in s:
 
-        name = f'down_results/groupnorm/True-partial_{_s}crop_2000subset_100epochs_32batch.csv'
+        name = f'results/{subdir}/{_s}crop_results.csv'
 
         df = pd.read_csv(name)
 
@@ -64,8 +65,8 @@ def plot_losses():
         xlabel = "Epoch"
 
         # Y columns
-        y1 = df["train_loss"].values
-        y2 = df["val_loss"].values
+        y1 = df["train_loss_E"].values
+        y2 = df["val_loss_E"].values
 
         # Plot both lines
         ax1.plot(x, y1, label=_s)
@@ -83,4 +84,4 @@ def plot_losses():
         ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("plots/results/groupnorm_2000subset_trainandval.png")
+    plt.savefig(f"plots/results/{subdir}/allcrop_results.png")
