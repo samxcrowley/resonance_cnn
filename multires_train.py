@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 from multires_numlevels_cnn import MultiRes_NumLevels_CNN
-from multires_numlevels_cnn import MultiRes_NumLevels_SmallCNN
 import preprocessing
 import load_data
 import sys
@@ -14,23 +13,26 @@ import os
 SEED = 22
 
 num_workers = 32
-subset_size = 5000
+subset_size = 1000
 
-cropping_strength = 0.25
+cropping_strength = sys.argv[1]
+num_res = sys.argv[2]
 
 # training
 num_epochs = 100
 batch_size = 32
-lr = 1e-3
-weight_decay = 1e-4
+lr = 1e-4
+weight_decay = 0.0
 
 # model params.
-dropout_p = 0.3
-base = 40
+dropout_p = 0.0
+base = 80
 kernel_size = 3
 gradients = True
 
-crit = torch.nn.SmoothL1Loss()
+# crit = torch.nn.SmoothL1Loss()
+crit = torch.nn.MSELoss()
+# crit = torch.nn.PoissonNLLLoss(log_input=False, full=True)
 
 def train_epoch(net, loader, optimizer, device, grad_clip=None):
 
@@ -53,6 +55,9 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
         num_target = batch_target_masks.sum(dim=1).to(device=device, dtype=torch.float32)
 
         num_pred = net(batch_images)
+
+        print(num_target)
+        print(num_pred)
 
         loss = crit(num_pred, num_target)
 
@@ -141,7 +146,8 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
-    images, target_params, target_masks = load_data.load_images_and_targets('multi', cropping_strength)
+    images, target_params, target_masks = \
+        load_data.load_images_and_targets(num_res, cropping_strength)
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
@@ -223,8 +229,8 @@ def main():
         results["val_acc_within_1"].append(val_m["acc_within_1"])
 
         # track best model
-        if val_m['acc_within_1'] < best_val_acc_within:
-            best_val_acc_within = val_m['acc_within_1']
+        if val_m['loss'] < best_val_acc_within:
+            best_val_acc_within = val_m['loss']
             best_epoch = epoch
             best_model_state = {k: v.cpu().clone() for k, v in net.state_dict().items()}
 
@@ -239,14 +245,14 @@ def main():
 
     # save best model
     model_filename = \
-        f'results/multires/{cropping_strength}crop_model.pt'
+        f'results/{num_res}res/{cropping_strength}crop_model.pt'
     os.makedirs(os.path.dirname(model_filename), exist_ok=True)
     torch.save(best_model_state, model_filename)
     print(f'Model saved to {model_filename}')
 
     # save results data
     results_filename = \
-        f'results/multires/{cropping_strength}crop_results.csv'
+        f'results/{num_res}res/{cropping_strength}crop_results.csv'
     os.makedirs(os.path.dirname(results_filename), exist_ok=True)
     df = pd.DataFrame(results)
     df.to_csv(results_filename, index=False)
