@@ -34,7 +34,7 @@ checkpoint = torch.load(f'results/singleres/energy/0.25crop_model.pt')
 net.load_state_dict(checkpoint)
 net.eval()
 
-window_width = 0.25
+window_width = 0.5
 start = exp_min + (window_width / 2)
 end = exp_max - (window_width / 2)
 step = 0.1
