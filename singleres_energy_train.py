@@ -15,7 +15,7 @@ SEED = 22
 num_workers = 32
 subset_size = 1000
 
-cropping_strength = 0.25
+cropping_strength = sys.argv[1]
 
 # training
 num_epochs = 100
@@ -34,38 +34,37 @@ def train_epoch(net, loader, optimizer, device, grad_clip=None):
     net.train()
 
     running = {
-        'loss_E': 0.0, 'mae_E': 0.0, 'count': 0
+        'loss': 0.0, 'mae': 0.0, 'count': 0
     }
 
-    for batch_images, batch_target_params, batch_target_masks in loader:
+    for batch_images, batch_targets in loader:
 
         batch_images = batch_images.to(device=device, dtype=torch.float32)
-        batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
-        batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
+        batch_targets = batch_targets.to(device=device, dtype=torch.float32)
 
-        E_target = batch_target_params[:, 0, 0]
+        E_target = batch_targets
 
         E_pred = net(batch_images)
 
-        loss_E = F.mse_loss(E_pred, E_target)
+        loss = F.mse_loss(E_pred, E_target)
 
         optimizer.zero_grad(set_to_none=True)
 
-        loss_E.backward()
+        loss.backward()
         if grad_clip is not None:
             torch.nn.utils.clip_grad_norm_(net.parameters(), grad_clip)
         optimizer.step()
 
         with torch.no_grad():
-            running['loss_E'] += loss_E.item() * batch_images.size(0)
-            running['mae_E'] += torch.abs(E_pred - E_target).sum().item()
+            running['loss'] += loss.item() * batch_images.size(0)
+            running['mae'] += torch.abs(E_pred - E_target).sum().item()
             running['count'] += batch_images.size(0)
 
     n = running['count']
 
     return {
-        'loss_E': running['loss_E'] / n,
-        'mae_E': running['mae_E'] / n
+        'loss': running['loss'] / n,
+        'mae': running['mae'] / n
     }
     
 def eval_epoch(net, loader, device):
@@ -73,31 +72,30 @@ def eval_epoch(net, loader, device):
     net.eval()
     
     running = {
-        'loss_E': 0.0, 'mae_E': 0.0, 'count': 0
+        'loss': 0.0, 'mae': 0.0, 'count': 0
     }
 
     with torch.no_grad():
 
-        for batch_images, batch_target_params, batch_target_masks in loader:
+        for batch_images, batch_targets in loader:
 
             batch_images = batch_images.to(device=device, dtype=torch.float32)
-            batch_target_params = batch_target_params.to(device=device, dtype=torch.float32)
-            batch_target_masks = batch_target_masks.to(device=device, dtype=torch.bool)
+            batch_targets = batch_targets.to(device=device, dtype=torch.float32)
 
-            E_target = batch_target_params[:, 0, 0]
+            E_target = batch_targets
 
             E_pred = net(batch_images)
 
-            loss_E = F.mse_loss(E_pred, E_target)
+            loss = F.mse_loss(E_pred, E_target)
 
-            running['loss_E'] += loss_E.item() * batch_images.size(0)
-            running['mae_E'] += torch.abs(E_pred - E_target).sum().item()
+            running['loss'] += loss.item() * batch_images.size(0)
+            running['mae'] += torch.abs(E_pred - E_target).sum().item()
             running['count'] += batch_images.size(0)
 
     n = running['count']
     metrics = {
-        'loss_E': running['loss_E'] / n,
-        'mae_E': running['mae_E'] / n
+        'loss': running['loss'] / n,
+        'mae': running['mae'] / n
     }
 
     return metrics
@@ -107,26 +105,25 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Using device: {device}')
 
-    images, target_params, target_masks = load_data.load_images_and_targets('single', cropping_strength)
+    images, targets = \
+        load_data.load_singleres_images_and_targets(cropping_strength)
 
-    images = images[::10]
-    target_params = target_params[::10]
-    target_masks = target_masks[::10]
+    if cropping_strength == 0.0:
+        targets = targets[::10]
 
     # if we have defined a smaller subset, cut off the unneeded samples
     if subset_size < len(images):
         images = images[:subset_size]
-        target_params = target_params[:subset_size]
-        target_masks = target_masks[:subset_size]
+        targets = targets[:subset_size]
 
     print(f'Images shape: {images.shape}')
-    print(f'Targets shape: {target_params.shape}, {target_masks.shape}')
-    if images.size(0) != target_params.size(0):
+    print(f'Targets shape: {targets.shape}')
+    if images.size(0) != targets.size(0):
         print('\nNo. images does not match no. targets!! Exiting.\n')
         sys.exit(0)
     print(f'Cropping strength: {cropping_strength}')
 
-    dataset = load_data.ResonanceDataset(images, target_params, target_masks, gradients=gradients)
+    dataset = load_data.SingleResonanceDataset(images, targets, gradients=gradients)
 
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
@@ -161,8 +158,8 @@ def main():
 
     results = {
         "epoch": [],
-        "train_loss_E": [], "train_mae_E": [],
-        "val_loss_E": [], "val_mae_E": []
+        "train_loss": [], "train_mae": [],
+        "val_loss": [], "val_mae": []
     }
 
     # track best model
@@ -175,28 +172,28 @@ def main():
         train_m = train_epoch(net, train_loader, optimizer, device)
         val_m = eval_epoch(net, val_loader, device)
 
-        scheduler.step(val_m['loss_E'])
+        scheduler.step(val_m['loss'])
 
         results["epoch"].append(epoch)
-        results["train_loss_E"].append(train_m["loss_E"])
-        results["train_mae_E"].append(train_m["mae_E"])
+        results["train_loss"].append(train_m["loss"])
+        results["train_mae"].append(train_m["mae"])
 
-        results["val_loss_E"].append(val_m["loss_E"])
-        results["val_mae_E"].append(val_m["mae_E"])
+        results["val_loss"].append(val_m["loss"])
+        results["val_mae"].append(val_m["mae"])
 
         # track best model
-        if val_m['loss_E'] < best_val_loss:
-            best_val_loss = val_m['loss_E']
+        if val_m['loss'] < best_val_loss:
+            best_val_loss = val_m['loss']
             best_epoch = epoch
             best_model_state = {k: v.cpu().clone() for k, v in net.state_dict().items()}
 
         if epoch % 5 == 0:
             print(
                 f"Epoch {epoch:02d} | "
-                f"train loss {train_m['loss_E']:.4f}"
-                f" | val loss {val_m['loss_E']:.4f}"
-                f" | train MAE {train_m['mae_E']:.4f}"
-                f" | val MAE {val_m['mae_E']:.4f}"
+                f"train loss {train_m['loss']:.4f}"
+                f" | val loss {val_m['loss']:.4f}"
+                f" | train MAE {train_m['mae']:.4f}"
+                f" | val MAE {val_m['mae']:.4f}"
             )
 
     # save best model

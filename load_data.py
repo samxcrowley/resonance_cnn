@@ -9,6 +9,10 @@ from torch.utils.data import Dataset
 
 MAX_RESONANCES = 5
 
+###
+## MULTI RESONANCE
+###
+
 # returns images, target_params (energies and gammas), target_mask, target_count
 def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=True, subset=-1):
 
@@ -162,9 +166,6 @@ def get_exp_image(path, compressed=True, log_cx=True):
         else:
             cx_vals.append(ds)
 
-    print(min(E_vals))
-    print(max(E_vals))
-
     image = preprocessing.place_image_on_grid(E_vals, A_vals, cx_vals)
 
     return image
@@ -184,7 +185,6 @@ def get_subset_of_image(img, centre_energy, E_vals, width):
     
     return img_windowed
 
-# input dataset for ResonanceCNN
 class ResonanceDataset(Dataset):
 
     def __init__(self, images, target_params, target_masks, gradients):
@@ -207,3 +207,131 @@ class ResonanceDataset(Dataset):
             image = preprocessing.sobel(image)
 
         return image, target_params, target_mask
+
+
+###
+## SINGLE RESONANCE
+###
+
+def get_singleres_images(train_path, crop_strength, log_cx=True, compressed=True):
+
+    if compressed:
+        with gzip.open(train_path, 'rb') as f:
+            json_bytes = f.read()
+            json_str = json_bytes.decode()
+            data = json.loads(json_str)
+    else:
+        with open(train_path, 'r') as f:
+            data = json.load(f)
+
+    n = len(data)
+
+    images = []
+
+    E_axis, A_axis = preprocessing.global_grid()
+    
+    for i in range(n):
+
+        print(f'get_singleres_images starting on {i}...')
+
+        points = data[i]['observable_sets'][0]['points']
+        
+        # image data
+        E_vals = []
+        A_vals = []
+        cx_vals = []
+
+        # add all image data
+        for p in points:
+
+            E_vals.append(p['cn_ex'])
+            A_vals.append(p['theta_cm_out'])
+
+            if log_cx:
+                cx_vals.append(np.log10(p['dsdO']))
+            else:
+                cx_vals.append(p['dsdO'])
+
+        # duplicate and process (place on grid and crop) each sample
+        for j in range(preprocessing.IMG_DUP):
+            
+            image = preprocessing.place_image_on_grid(E_vals, A_vals, cx_vals)
+
+            if crop_strength == 0.0:
+                cropped_E_axis = E_axis
+                cropped_A_axis = A_axis
+            else:
+                print(f'cropping {i}, {j}...')
+                image, cropped_E_axis, cropped_A_axis = \
+                        preprocessing.crop_image(image, crop_strength)
+            
+            images.append(image)
+
+    return torch.stack(images, dim=0)
+
+def get_singleres_targets(train_path, compressed=True):
+
+    if compressed:
+        with gzip.open(train_path, 'rb') as f:
+            json_bytes = f.read()
+            json_str = json_bytes.decode()
+            data = json.loads(json_str)
+    else:
+        with open(train_path, 'r') as f:
+            data = json.load(f)
+
+    n = len(data)
+    targets = []
+
+    E_axis, A_axis = preprocessing.global_grid()
+
+    for i in range(n):
+
+        levels = data[i]['levels'][0]
+        energy = levels['energy']
+
+        # normalise energy
+        Er_unit = (energy - E_axis.min()) / max(E_axis.max() - E_axis.min(), 1e-8)
+        Er_unit = float(np.clip(Er_unit, 0.0, 1.0))
+
+        for i in range(preprocessing.IMG_DUP):
+            targets.append(torch.tensor(Er_unit, dtype=torch.float32))
+
+    return torch.stack(targets, dim=0)
+
+def save_singleres_images_and_targets(train_path, crop_strength, compressed=True):
+
+    images = get_singleres_images(train_path, crop_strength, compressed)
+    torch.save(images, f'data/images/singleres_images_crop{crop_strength}.pt')
+
+    targets = get_singleres_targets(train_path, compressed)
+    torch.save(targets, f'data/targets/singleres_targets_crop{crop_strength}.pt')
+
+def load_singleres_images_and_targets(crop_strength):
+
+    images = torch.load(f'data/images/singleres_images_crop{crop_strength}.pt')
+    targets = torch.load(f'data/targets/singleres_targets_crop{crop_strength}.pt')
+
+    return images, targets
+
+class SingleResonanceDataset(Dataset):
+
+    def __init__(self, images, targets, gradients=True):
+
+        self.images = images # shape: [N, 2, E, A]
+        self.targets = targets # shape: [N, 2]
+        self.gradients = gradients
+
+    def __len__(self):
+
+        return len(self.images)
+
+    def __getitem__(self, idx):
+
+        image = self.images[idx]
+        target = self.targets[idx]
+
+        if self.gradients:
+            image = preprocessing.sobel(image)
+
+        return image, target
