@@ -1,12 +1,13 @@
 import gzip
 import json
+import math
 import torch
 import numpy as np
 import pandas as pd
 import preprocessing
 from torch.utils.data import Dataset
 
-MAX_RESONANCES = 20
+MAX_RESONANCES = 5
 
 # returns images, target_params (energies and gammas), target_mask, target_count
 def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=True, subset=-1):
@@ -34,7 +35,7 @@ def get_images_and_targets(train_path, crop_strength, log_cx=True, compressed=Tr
 
         print(f'get_images_and_targets starting on {i}...')
 
-        points = data[i]['observable_sets'][0]['points']
+        points = data['data'][i]['observable_sets'][0]['points']
         
         # image data
         E_vals = []
@@ -128,6 +129,60 @@ def load_images_and_targets(nr, strength):
     target_masks = torch.load(f'data/targets/{nr}res_targetmasks_crop{strength}.pt')
 
     return images, target_params, target_masks
+
+# load one experimental image
+def get_exp_image(path, compressed=True, log_cx=True):
+
+    if compressed:
+        with gzip.open(path, 'rb') as f:
+            json_bytes = f.read()
+            json_str = json_bytes.decode()
+            data = json.loads(json_str)
+    else:
+        with open(path, 'r') as f:
+            data = json.load(f)
+
+    points = data['data'][0]['points']
+
+    # image data
+    E_vals = []
+    A_vals = []
+    cx_vals = []
+
+    # add all image data
+    for p in points:
+
+        E_vals.append(p['cn_ex'])
+        A_vals.append(p['theta_cm_out'])
+
+        ds = p['dsdO']
+
+        if log_cx:
+            cx_vals.append(np.log10(ds))
+        else:
+            cx_vals.append(ds)
+
+    print(min(E_vals))
+    print(max(E_vals))
+
+    image = preprocessing.place_image_on_grid(E_vals, A_vals, cx_vals)
+
+    return image
+
+def get_subset_of_image(img, centre_energy, E_vals, width):
+
+    E_vals = torch.tensor(E_vals)
+
+    E_min = centre_energy - (width / 2)
+    E_max = centre_energy + (width / 2)
+
+    inside_E = (E_vals >= E_min) & (E_vals <= E_max) # shape [E]
+    inside_2d = inside_E.view(-1, 1).expand(-1, img.shape[2]) # [E, A]
+
+    img_windowed = img.clone()
+    img_windowed[1] = img_windowed[1] * inside_2d 
+    
+    return img_windowed
 
 # input dataset for ResonanceCNN
 class ResonanceDataset(Dataset):
