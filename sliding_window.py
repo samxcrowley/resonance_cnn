@@ -51,15 +51,14 @@ for E in np.arange(start, end, step):
 
         df.loc[len(df)] = [E, pred_E]
 
-df.to_csv('sliding_window.csv', index=False)
-df = pd.read_csv('sliding_window.csv')
+df.to_csv('results/sliding_window.csv', index=False)
+# df = pd.read_csv('results/sliding_window.csv')
 
 plt.figure(figsize=(6, 4))
 plt.plot(df['centre_energy'], df['predicted_resonance_energy'], marker='o', linestyle='-', color='tab:blue', label='data')
-plt.title('Sliding window')
+plt.title(f'Sliding window (width {window_width})')
 plt.xlabel('Window centre energy')
 plt.ylabel('Predicted energy')
 plt.grid(True, linestyle='--', alpha=0.6)
-plt.legend()
 plt.tight_layout()
 plt.savefig('plots/sliding_window.png')
