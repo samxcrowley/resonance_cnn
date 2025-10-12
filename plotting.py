@@ -33,7 +33,7 @@ def plot_image(image, name):
     plt.savefig(filename, dpi=150)
 
 # plot train and val loss of one training run
-def plot_results(subdir, cropping_strength):
+def plot_singleres_loss(subdir, cropping_strength):
 
     df = pd.read_csv(f'results/{subdir}/{cropping_strength}crop_results.csv')
 
@@ -52,7 +52,7 @@ def plot_results(subdir, cropping_strength):
     plt.savefig(filename, dpi=150)
 
 # plot train and val loss of all cropping strengths
-def plot_losses(subdir, strengths=[0.0, 0.5, 0.75, 0.9]):
+def plot_singleres_loss_allstrengths(subdir, strengths=[0.0, 0.5, 0.75, 0.9]):
 
     files = []
 
@@ -188,3 +188,72 @@ def plot_prediction_scatter(targets, predictions, predictions_rounded,
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     print(f'Prediction scatter plot saved to {save_path}')
     plt.close()
+
+def plot_multires_stat(num_res, cropping_strength, stat, nice_name):
+
+    df = pd.read_csv(f'results/{num_res}res/{cropping_strength}crop_results.csv')
+
+    plt.figure()
+    plt.plot(df["epoch"], df[f"train_{stat}"], label=f"Train {nice_name}")
+    plt.plot(df["epoch"], df[f"val_{stat}"], label=f"Val {nice_name}")
+    plt.xlabel("epoch")
+    plt.ylabel(stat)
+    plt.title(nice_name)
+    plt.legend()
+    plt.tight_layout()
+
+    filename = f'plots/{num_res}res/{cropping_strength}/{stat}.png'
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    plt.savefig(filename, dpi=150)
+
+def plot_multires_stat_allstrengths(num_res, stat, nice_name, strengths=[0.1, 0.25, 0.5, 0.75]):
+
+    files = []
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    ax1, ax2 = axes
+
+    for _s in strengths:
+
+        name = f'results/{num_res}res/{_s}crop_results.csv'
+
+        df = pd.read_csv(name)
+
+        x = df["epoch"].values
+        xlabel = "Epoch"
+
+        # Y columns
+        y1 = df[f"train_{stat}"].values
+        y2 = df[f"val_{stat}"].values
+
+        # Plot both lines
+        ax1.plot(x, y1, label=_s)
+        ax2.plot(x, y2, label=_s)
+
+    ax1.set_xlabel(xlabel)
+    ax1.set_ylabel(f"Train {nice_name}")
+    ax2.set_xlabel(xlabel)
+    ax2.set_ylabel(f"Val {nice_name}")
+
+    ax1.legend(title="Strength")
+    ax2.legend(title="Strength")
+
+    for ax in (ax1, ax2):
+        ax.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(f"plots/{num_res}res/allcrop_{stat}.png")
+
+def plot_all_multires():
+
+    for nr in [5, 10, 20]:
+
+        for c in [0.1, 0.25, 0.5, 0.75]:
+
+            plotting.plot_multires_stat(nr, c, 'loss', 'Loss')
+            plotting.plot_multires_stat(nr, c, 'acc_exact', 'Accuracy')
+            plotting.plot_multires_stat(nr, c, 'acc_within_1', 'Accuracy ± 1')
+
+        plotting.plot_multires_stat_allstrengths(nr, 'loss', 'Loss')
+        plotting.plot_multires_stat_allstrengths(nr, 'acc_exact', 'Accuracy')
+        plotting.plot_multires_stat_allstrengths(nr, 'acc_within_1', 'Accuracy ± 1')
