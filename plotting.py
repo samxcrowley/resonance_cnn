@@ -38,8 +38,8 @@ def plot_results(subdir, cropping_strength):
     df = pd.read_csv(f'results/{subdir}/{cropping_strength}crop_results.csv')
 
     plt.figure()
-    plt.plot(df["epoch"], df["train_loss_E"], label="train loss")
-    plt.plot(df["epoch"], df["val_loss_E"], label="val loss")
+    plt.plot(df["epoch"], df["train_loss"], label="train loss")
+    plt.plot(df["epoch"], df["val_loss"], label="val loss")
     # plt.plot(df["epoch"], df["train_mae_E"], label="MAE")
     plt.xlabel("epoch")
     plt.ylabel("loss")
@@ -69,8 +69,8 @@ def plot_losses(subdir, strengths=[0.0, 0.5, 0.75, 0.9]):
         xlabel = "Epoch"
 
         # Y columns
-        y1 = df["train_loss_E"].values
-        y2 = df["val_loss_E"].values
+        y1 = df["train_loss"].values
+        y2 = df["val_loss"].values
 
         # Plot both lines
         ax1.plot(x, y1, label=_s)
